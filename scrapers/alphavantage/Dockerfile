@@ -1,6 +1,6 @@
 FROM golang:1.8
 
-WORKDIR /go/src/github.com/d-sparks/ace-of-trades/scrapers/alphavantage
+WORKDIR /go/src/github.com/d-sparks/gravy/scrapers/alphavantage
 COPY . .
 
 RUN /usr/local/go/bin/go get -d -v ./...
