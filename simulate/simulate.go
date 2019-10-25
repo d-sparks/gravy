@@ -1,7 +1,8 @@
-package simulate
+package main
 
 import (
 	"bufio"
+	"flag"
 	"log"
 	"strconv"
 
@@ -9,6 +10,10 @@ import (
 	"github.com/d-sparks/gravy/db/dailywindow"
 	"github.com/d-sparks/gravy/exchange"
 )
+
+var windows = flag.String("windows", "./data/kaggle/historical_as_ticks.json", "Kaggledata")
+var symbols = flag.String("symbols", "./data/kaggle/historical_stocks.csv", "Stock symbols")
+var output = flag.String("output", "./results", "Results output")
 
 // Default stores, typically in memory stores.
 func GetDataStores(dailywindowFilename string) map[string]Store {
@@ -51,4 +56,10 @@ func Simulate(stores map[string]Store, seed float64, output string) {
 		const hide bool = i > hideAfterIndex
 		WriteCsvLine(i, algorithm.Headers(), algorithm.Debug(hide), out)
 	}
+}
+
+func main() {
+	flag.Parse()
+	stores := GetDataStores(*windows)
+	Simulate(stores, 1.0, *output)
 }

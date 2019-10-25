@@ -17,6 +17,6 @@ type Signal interface {
 	Compute(date time.Time, stores map[string]db.Store) SignalOutput
 
 	// Debug info for previous computation.
-	DebugHeaders() []string
+	Headers() []string
 	Debug() map[string]string
 }

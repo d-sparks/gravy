@@ -19,11 +19,11 @@ type Strategy interface {
 	// Run the strategy.
 	Run(
 		date time.Time,
-		data map[string]db.Store,
+		stores map[string]db.Store,
 		signals map[string]signal.Signal,
 	) StrategyOutput
 
 	// Get debug output for previous Run.
-	DebugHeaders() []string
+	Headers() []string
 	Debug() map[string]string
 }

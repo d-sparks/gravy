@@ -47,17 +47,21 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange exchange.Exchange)
 	algorithm.signalOrder = append(algorithm.signalOrder, movingaverage.Name(100))
 
 	// Initialize strategies.
+	algorithm.strategies[buyandhold.Name] = buyandhold.NewBuyAndHold()
+	algorithm.strategyOrder = append(algorithm.strategyOrder, buyandhold.Name)
 
-	// Order of algorithm headers.
+	// Order of algorithm headers. Use internal name (don't include algHeaders).
 	algorithm.algorithmHeaders = []string{"date"}
 
-	// Whitelist anynonhidden headers.
-	nonhiddenHeaders.Insert("date")
+	// Whitelist anynonhidden headers. Should match actual csv header, so use algHeader,
+	// stratHeader, and signalHeader.
+	nonhiddenHeaders.Insert(algHeader("date"))
 }
 
+// Calculates data, signals, strategies, and executes trades.
 func (t *TradingAlgorithm) Trade(date time.Time) {
 	// Clear debug output.
-	t.debug = map[string]string{}
+	t.debug = map[string]string{"date": date.Format("2006-01-02")}
 
 	// Get current portfolio.
 	portfolio := s.exchange.CurrentPortfolio()
@@ -76,16 +80,14 @@ func (t *TradingAlgorithm) Trade(date time.Time) {
 	}
 }
 
+// Format helpers for debug headers.
 func signalHeader(signal, header string) { return fmt.Sprintf("signalstrat.%s.%s", signal, header) }
+func stratHeader(strat, header string)   { return fmt.Sprintf("strat.%s.%s", strat, header) }
+func algHeader(header string)            { return fmt.Spritnf("alg.%s", header) }
 
-func stratHeader(strat, header string) { return fmt.Sprintf("strat.%s.%s", strat, header) }
-
-func algHeader(header string) { return fmt.Spritnf("alg.%s", header) }
-
-// Returns headers signal.${SIGNAL}.header, strategy.${STRATEGY}.header, and its own headers. Must
-// be called after signals and strategies are populated.
+// Combines all signal, strategy, and algorithm headers. On first call, actually computes header
+// order.
 func (t *TradingAlgorithm) Headers() []string {
-	// If headers has not been called, compute the header vector.
 	if len(t.headers) == 0 {
 		t.headers = []string{}
 		for _, signal := range t.signalOrder {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/d-sparks/gravy/db"
+	"github.com/d-sparks/gravy/db/dailywindow"
 	"github.com/d-sparks/gravy/trading"
 )
 
@@ -28,7 +29,7 @@ func (m *MovingAverage) Compute(date time.Time, stores map[string]db.Store) Sign
 	// Update observations...
 }
 
-func (m *MovingAverage) DebugHeaders() []string {
+func (m *MovingAverage) Headers() []string {
 	return nil
 }
 
