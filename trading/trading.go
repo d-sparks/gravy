@@ -74,15 +74,3 @@ type Order struct {
 
 type OrderOutcome struct {
 }
-
-// Strategy. For use with trading/simulate or analysis.
-type Strategy interface {
-	// Return slice of output headers.
-	Headers() []string
-
-	// Places initial bets.
-	Initialize(tick Tick) (Position, []string)
-
-	// Process stock tick and return position and data outputs.
-	ProcessTick(tick Tick, ipos, unlist []string, returns float64) (Position, []string)
-}

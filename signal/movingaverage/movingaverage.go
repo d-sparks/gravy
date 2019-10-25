@@ -1,11 +1,11 @@
-package signal
+package movingaverage
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/d-sparks/gravy/db"
-	"github.com/d-sparks/gravy/db/dailywindow"
+	"github.com/d-sparks/gravy/signal"
 	"github.com/d-sparks/gravy/trading"
 )
 
@@ -18,15 +18,16 @@ type MovingAverage struct {
 	days         int
 }
 
-func NewMovingAverage(days int) MovingAverage {
-	return MovingAverage{days: days}
+func NewMovingAverage(days int) *MovingAverage {
+	return &MovingAverage{days: days}
 }
 
-func (m *MovingAverage) Compute(date time.Time, stores map[string]db.Store) SignalOutput {
+func (m *MovingAverage) Compute(date time.Time, stores map[string]db.Store) signal.SignalOutput {
 	// Get newest window
-	window := stores[dailywindow.Name].Get(date).Window
+	// window := stores[dailywindow.Name].Get(date).Window
 
 	// Update observations...
+	return signal.SignalOutput{}
 }
 
 func (m *MovingAverage) Headers() []string {

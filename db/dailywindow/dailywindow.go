@@ -14,8 +14,8 @@ type InMemoryStore struct {
 	dates []time.Time
 }
 
-func NewInMemoryStore(filename string) InMemoryStore {
-	return InMemoryStore{data: map[time.Time]trading.Window{}}
+func NewInMemoryStore(filename string) *InMemoryStore {
+	store := InMemoryStore{data: map[time.Time]trading.Window{}}
 	// TODO: parse.
 }
 

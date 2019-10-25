@@ -10,27 +10,28 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/d-sparks/ace-of-trades/trading"
+	"github.com/d-sparks/gravy/gravyutil"
+	"github.com/d-sparks/gravy/trading"
 )
 
 var input = flag.String("input", "./data/kaggle/historical_stock_prices.csv", "Kaggledata input")
-var output = flag.String("output", "./data/kaggle/historical_as_ticks.json", "Normalized output")
+var output = flag.String("output", "./data/kaggle/historical_as_windows.json", "Normalized output")
 
 func ParseOrDie(floatString string) float64 {
 	float, err := strconv.ParseFloat(floatString, 64)
-	trading.FatalIfErr(err)
+	gravyutil.FatalIfErr(err)
 	return float
 }
 
 func main() {
 	// Open input file for reading as CSV
 	f, err := os.Open(*input)
-	trading.FatalIfErr(err)
+	gravyutil.FatalIfErr(err)
 	reader := csv.NewReader(f)
 
 	// Populate headers
 	headers, err := reader.Read()
-	trading.FatalIfErr(err)
+	gravyutil.FatalIfErr(err)
 	index := map[string]int{}
 	for i, header := range headers {
 		index[header] = i
@@ -40,48 +41,56 @@ func main() {
 	}
 
 	// Group by date
-	data := map[string]trading.Tick{}
+	data := map[time.Time]*trading.Window{}
 	for {
 		row, err := reader.Read()
 		if err == io.EOF {
 			break
 		}
-		trading.FatalIfErr(err)
+		gravyutil.FatalIfErr(err)
 
-		date := get(row, "date")
-		time, err := time.Parse("2006-01-02", date)
-		trading.FatalIfErr(err)
+		dateStr := get(row, "date")
+		date, err := time.Parse("2006-01-02", dateStr)
+		gravyutil.FatalIfErr(err)
 		if _, ok := data[date]; !ok {
-			data[date] = trading.Tick{}
+			data[date] = &trading.Window{
+				Open:   trading.Prices{},
+				Close:  trading.Prices{},
+				High:   trading.Prices{},
+				Low:    trading.Prices{},
+				Volume: trading.Prices{},
+			}
 		}
-		data[date][get(row, "ticker")] = trading.Window{
-			Close: ParseOrDie(get(row, "close")),
-			High:  ParseOrDie(get(row, "high")),
-			Low:   ParseOrDie(get(row, "low")),
-			Open:  ParseOrDie(get(row, "open")),
-			Begin: time,
-			End:   time,
-		}
+		ticker := get(row, "ticker")
+		data[date].Begin = date
+		data[date].End = date
+		data[date].Open[ticker] = ParseOrDie(get(row, "open"))
+		data[date].Close[ticker] = ParseOrDie(get(row, "close"))
+		data[date].High[ticker] = ParseOrDie(get(row, "high"))
+		data[date].Low[ticker] = ParseOrDie(get(row, "low"))
+		data[date].Volume[ticker] = ParseOrDie(get(row, "volume"))
 	}
 
 	// Get tick order
 	dates := sort.StringSlice{}
 	for date, _ := range data {
-		dates = append(dates, date)
+		dates = append(dates, date.Format("2006-01-02"))
 	}
 	dates.Sort()
 
 	// Open output file for writing as rows of json ticks
 	out, err := os.Create(*output)
-	trading.FatalIfErr(err)
+	gravyutil.FatalIfErr(err)
 	defer out.Close()
 
 	// Write ticks
-	for _, date := range dates {
+	for _, dateStr := range dates {
+		date, err := time.Parse("2006-01-02", dateStr)
+		gravyutil.FatalIfErr(err)
 		bytes, err := json.Marshal(data[date])
-		trading.FatalIfErr(err)
+		gravyutil.FatalIfErr(err)
 		tick := string(bytes) + "\n"
 		_, err = out.WriteString(tick)
-		trading.FatalIfErr(err)
+		gravyutil.FatalIfErr(err)
 	}
 }

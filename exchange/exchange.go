@@ -15,8 +15,8 @@ type MockExchange struct {
 }
 
 // New Mock exchange starting with a seed of USD.
-func NewMockExchange(seed float64) MockExchange {
-	return MockExchange{portfolio: trading.NewPortfolio(seed)}
+func NewMockExchange(seed float64) *MockExchange {
+	return &MockExchange{portfolio: trading.NewPortfolio(seed)}
 }
 
 // Sets prices for upcoming orders.

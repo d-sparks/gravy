@@ -7,8 +7,10 @@ import (
 	"strconv"
 
 	"github.com/d-sparks/gravy/algorithm"
+	"github.com/d-sparks/gravy/db"
 	"github.com/d-sparks/gravy/db/dailywindow"
 	"github.com/d-sparks/gravy/exchange"
+	"github.com/d-sparks/gravy/gravyutil"
 )
 
 var windows = flag.String("windows", "./data/kaggle/historical_as_ticks.json", "Kaggledata")
@@ -16,14 +18,14 @@ var symbols = flag.String("symbols", "./data/kaggle/historical_stocks.csv", "Sto
 var output = flag.String("output", "./results", "Results output")
 
 // Default stores, typically in memory stores.
-func GetDataStores(dailywindowFilename string) map[string]Store {
-	stores := map[string]Store{}
+func GetDataStores(dailywindowFilename string) map[string]db.Store {
+	stores := map[string]db.Store{}
 	stores[dailywindow.Name] = dailywindow.NewInMemoryStore(dailywindowFilename)
 	return stores
 }
 
 // Writes a CSV line from a key order and kv. Includes an integer ID line.
-func WriteCSVLine(id int, order []string, kv map[string]string, out bufio.Writer) {
+func WriteCSVLine(id int, order []string, kv map[string]string, out *bufio.Writer) {
 	out.WriteString(strconv.Itoa(id))
 	for _, header := range order {
 		out.WriteString("," + kv[header])
@@ -32,9 +34,9 @@ func WriteCSVLine(id int, order []string, kv map[string]string, out bufio.Writer
 }
 
 // Simulates over all dates from a dailwindow.InMemoryStore.
-func Simulate(stores map[string]Store, seed float64, output string) {
+func Simulate(stores map[string]db.Store, seed float64, output string) {
 	// Get dates to simulate.
-	dailywindow, ok := stores[dailywindow.Name].(dailywindow.InMemoryStore)
+	dailywindow, ok := stores[dailywindow.Name].(*dailywindow.InMemoryStore)
 	if !ok {
 		log.Fatalf("Simulation failed, dailywindow store not an InMemoryStore")
 	}
@@ -50,11 +52,12 @@ func Simulate(stores map[string]Store, seed float64, output string) {
 	out := gravyutil.FileWriterOrDie(output)
 
 	// Iterate over dates and simulate trading.
-	const hideAfterIndex int = len(dates) / 2
-	for i, date := range dates {
-		algorithm.Trade(date)
-		const hide bool = i > hideAfterIndex
-		WriteCsvLine(i, algorithm.Headers(), algorithm.Debug(hide), out)
+	skipUntilIndex := 3650
+	hideAfterIndex := len(dates) / 2
+	for i := skipUntilIndex; i < len(dates); i++ {
+		algorithm.Trade(dates[i])
+		hide := i > hideAfterIndex
+		WriteCSVLine(i, algorithm.Headers(), algorithm.Debug(hide), out)
 	}
 }
 

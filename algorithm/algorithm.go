@@ -1,13 +1,16 @@
 package algorithm
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Clever/go-utils/stringset"
 	"github.com/d-sparks/gravy/db"
 	"github.com/d-sparks/gravy/exchange"
 	"github.com/d-sparks/gravy/signal"
+	"github.com/d-sparks/gravy/signal/movingaverage"
 	"github.com/d-sparks/gravy/strategy"
+	"github.com/d-sparks/gravy/strategy/buyandhold"
 	"github.com/d-sparks/gravy/trading"
 )
 
@@ -43,7 +46,7 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange exchange.Exchange)
 	}
 
 	// Initialize signals.
-	algorithm.signals[movingaverage.Name(100)] = NewMovingAverage(100)
+	algorithm.signals[movingaverage.Name(100)] = movingaverage.NewMovingAverage(100)
 	algorithm.signalOrder = append(algorithm.signalOrder, movingaverage.Name(100))
 
 	// Initialize strategies.
@@ -55,7 +58,9 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange exchange.Exchange)
 
 	// Whitelist anynonhidden headers. Should match actual csv header, so use algHeader,
 	// stratHeader, and signalHeader.
-	nonhiddenHeaders.Insert(algHeader("date"))
+	algorithm.nonhiddenHeaders.Add(algHeader("date"))
+
+	return algorithm
 }
 
 // Calculates data, signals, strategies, and executes trades.
@@ -64,7 +69,7 @@ func (t *TradingAlgorithm) Trade(date time.Time) {
 	t.debug = map[string]string{"date": date.Format("2006-01-02")}
 
 	// Get current portfolio.
-	portfolio := s.exchange.CurrentPortfolio()
+	// portfolio := t.exchange.CurrentPortfolio()
 
 	// Get outputs of individual strategies.
 	strategyOutputs := map[string]strategy.StrategyOutput{}
@@ -76,14 +81,16 @@ func (t *TradingAlgorithm) Trade(date time.Time) {
 	orders := []trading.Order{}
 	orderOutcomes := make([]trading.OrderOutcome, len(orders))
 	for i, order := range orders {
-		orderOutcomes[i] = exchange.SubmitOrder(order)
+		orderOutcomes[i] = t.exchange.SubmitOrder(order)
 	}
 }
 
 // Format helpers for debug headers.
-func signalHeader(signal, header string) { return fmt.Sprintf("signalstrat.%s.%s", signal, header) }
-func stratHeader(strat, header string)   { return fmt.Sprintf("strat.%s.%s", strat, header) }
-func algHeader(header string)            { return fmt.Spritnf("alg.%s", header) }
+func signalHeader(signal, header string) string {
+	return fmt.Sprintf("signalstrat.%s.%s", signal, header)
+}
+func stratHeader(strat, header string) string { return fmt.Sprintf("strat.%s.%s", strat, header) }
+func algHeader(header string) string          { return fmt.Sprintf("alg.%s", header) }
 
 // Combines all signal, strategy, and algorithm headers. On first call, actually computes header
 // order.
@@ -91,12 +98,12 @@ func (t *TradingAlgorithm) Headers() []string {
 	if len(t.headers) == 0 {
 		t.headers = []string{}
 		for _, signal := range t.signalOrder {
-			for _, header := range t.signals[signal].DebugHeaders() {
+			for _, header := range t.signals[signal].Headers() {
 				t.headers = append(t.headers, signalHeader(signal, header))
 			}
 		}
 		for _, strat := range t.strategyOrder {
-			for _, header := range t.signals[strat].DebugHeaders() {
+			for _, header := range t.signals[strat].Headers() {
 				t.headers = append(t.headers, stratHeader(strat, header))
 			}
 		}
