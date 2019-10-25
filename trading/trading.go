@@ -1,56 +1,78 @@
 package trading
 
 import (
-	"log"
 	"time"
 )
 
-// Utility methods.
-func FatalIfErr(err error) {
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-}
+// Prices is a mapping from asset identifier to a price.
+type Prices map[string]float64
 
-// Window.
+// Window represents a unit of time, with various prices for the assets.
 type Window struct {
 	Begin time.Time
 	End   time.Time
 
-	Close float64
-	High  float64
-	Low   float64
-	Open  float64
+	Close  Prices
+	High   Prices
+	Low    Prices
+	Open   Prices
+	Volume Prices
 }
 
-func (w Window) MeanPrice() float64 {
-	return (w.High + w.Low) / 2
+// Portfolio.
+type Portfolio struct {
+	Stocks  map[string]int
+	CashUSD float64
 }
 
-// Tick. Maps symbols to windows.
-type Tick map[string]Window
-
-// Position. Represents all investments and liquid assets.
-type Position struct {
-	Investments map[string]float64
-	Liquid      float64
-}
-
-func NewPosition(liquid float64) Position {
-	return Position{
-		Investments: map[string]float64{},
-		Liquid:      liquid,
+func NewPortfolio(seed float64) Portfolio {
+	return Portfolio{
+		Stocks:  map[string]int{},
+		CashUSD: seed,
 	}
 
 }
 
 // Returns mature value of a position given a Tick.
-func (p Position) Value(tick Tick) float64 {
-	value := p.Liquid
-	for symbol, quantity := range p.Investments {
-		value += quantity * tick[symbol].Close
+func (p Portfolio) Value(prices Prices) float64 {
+	value := p.CashUSD
+	for symbol, quantity := range p.Stocks {
+		value += float64(quantity) * prices[symbol]
 	}
 	return value
+}
+
+// Abstract portfolio. Can hold fractional and negative shares.
+type AbstractPortfolio struct {
+	Stocks  map[string]float64
+	CashUSD float64
+}
+
+func NewAbstractPortfolio(seed float64) AbstractPortfolio {
+	return AbstractPortfolio{
+		Stocks:  map[string]float64{},
+		CashUSD: seed,
+	}
+
+}
+
+// Returns mature value of a position given a Tick.
+func (p AbstractPortfolio) Value(prices Prices) float64 {
+	value := p.CashUSD
+	for symbol, quantity := range p.Stocks {
+		value += quantity * prices[symbol]
+	}
+	return value
+}
+
+// TODO: include enough data for other types of orders and shorts.
+type Order struct {
+	StopPrice  float64
+	LimitPrice float64
+	Volume     int
+}
+
+type OrderOutcome struct {
 }
 
 // Strategy. For use with trading/simulate or analysis.
