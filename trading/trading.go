@@ -1,7 +1,10 @@
 package trading
 
 import (
+	"log"
 	"time"
+
+	"github.com/Clever/go-utils/stringset"
 )
 
 // Prices is a mapping from asset identifier to a price.
@@ -17,6 +20,8 @@ type Window struct {
 	Low    Prices
 	Open   Prices
 	Volume Prices
+
+	Symbols stringset.StringSet
 }
 
 // Portfolio.
@@ -42,27 +47,71 @@ func (p Portfolio) Value(prices Prices) float64 {
 	return value
 }
 
-// Abstract portfolio. Can hold fractional and negative shares.
+// Abstract portfolio. A probability distribution over potential assets.
 type AbstractPortfolio struct {
-	Stocks  map[string]float64
-	CashUSD float64
+	stocks map[string]float64
+	total  float64
 }
 
-func NewAbstractPortfolio(seed float64) AbstractPortfolio {
-	return AbstractPortfolio{
-		Stocks:  map[string]float64{},
-		CashUSD: seed,
-	}
-
+func NewAbstractPortfolio() AbstractPortfolio {
+	return AbstractPortfolio{stocks: map[string]float64{}, total: 0.0}
 }
 
-// Returns mature value of a position given a Tick.
-func (p AbstractPortfolio) Value(prices Prices) float64 {
-	value := p.CashUSD
-	for symbol, quantity := range p.Stocks {
-		value += quantity * prices[symbol]
+func NewBalancedAbstractPortfolio(stocksPrices Prices) {
+	portfolio := NewAbstractPortfolio()
+	for symbol, _ := range prices {
+		portfolio.SetStock(symbol, 1.0)
 	}
-	return value
+	return portfolio
+}
+
+// Ensures that the abstract portfolio is normalized to be a distribution.
+func (a *AbstractPortfolio) ensureDistribution() {
+	if a.total == 0.0 {
+		log.Fatalf("Tried to create distribution in AbstractPortfolio before SetStock.")
+	} else if a.total == 1.0 {
+		return
+	}
+	for symbol, value := range a.stocks {
+		a.stocks[symbol] = value / a.total
+	}
+	a.total = 1.0
+}
+
+// Sets a value for stock and updates the total.
+func (a *AbstractPortfolio) SetStock(symbol string, value float64) {
+	a.total -= a.stocks[symbol]
+	a.stocks[symbol] = value
+	a.total += value
+}
+
+// Gets stock (after ensuring the portfolio is a distribution).
+func (a *AbstractPortfolio) GetStock(symbol string) float64 {
+	a.ensureDistribution()
+	return a.stocks[symbol]
+}
+
+// Balances an abstract portfolio equally into all stocks. Returns any current value for unlisted
+// stocks.
+func (p *AbstractPortfolio) Balance(prices, previousPrices Prices, seed float64) {
+	cashUSD := seed
+	for symbol, units := range p.Stocks {
+		if previousPrices != nil {
+			// For symbols that are no longer listed, divest at previous closing price.
+			if _, ok := prices[symbol]; !ok {
+				cashUSD += p.Stocks[symbol] * previousPrices[symbol]
+			}
+		}
+		delete(p.Stocks, symbol)
+	}
+
+	// Invest equally in all stocks.
+	frac := 1.0 / len(prices)
+	for symbol, price := range prices {
+		b.Stocks[symbol] = frac / price
+	}
+
+	return cashout
 }
 
 // TODO: include enough data for other types of orders and shorts.
