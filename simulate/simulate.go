@@ -6,11 +6,11 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/d-sparks/gravy"
 	"github.com/d-sparks/gravy/algorithm"
 	"github.com/d-sparks/gravy/db"
 	"github.com/d-sparks/gravy/db/dailywindow"
 	"github.com/d-sparks/gravy/gravyutil"
+	"github.com/d-sparks/gravy/mock"
 )
 
 var windows = flag.String("windows", "./data/kaggle/historical_as_windows.json", "Kaggledata")
@@ -52,7 +52,7 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 	dates := dailywindow.Dates()
 
 	// Mock exchange.
-	exchange := gravy.NewMockExchange(seed)
+	exchange := mock.NewExchange(seed)
 
 	// Make trading algorithm.
 	algorithm := algorithm.NewTradingAlgorithm(stores, exchange)
