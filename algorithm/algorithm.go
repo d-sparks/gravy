@@ -10,6 +10,7 @@ import (
 	"github.com/d-sparks/gravy/signal"
 	"github.com/d-sparks/gravy/signal/ipos"
 	"github.com/d-sparks/gravy/signal/movingaverage"
+	"github.com/d-sparks/gravy/signal/unlistings"
 	"github.com/d-sparks/gravy/strategy"
 	"github.com/d-sparks/gravy/strategy/buyandhold"
 	"github.com/d-sparks/gravy/trading"
@@ -49,6 +50,7 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 	// Initialize signals.
 	t.AddSignal(movingaverage.Name(100), movingaverage.NewMovingAverage(100))
 	t.AddSignal(ipos.Name, ipos.New())
+	t.AddSignal(unlistings.Name, unlistings.New())
 
 	// Initialize strategies.
 	t.AddStrategy(buyandhold.Name, buyandhold.NewBuyAndHold())
