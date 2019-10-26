@@ -8,6 +8,7 @@ import (
 	"github.com/d-sparks/gravy"
 	"github.com/d-sparks/gravy/db"
 	"github.com/d-sparks/gravy/signal"
+	"github.com/d-sparks/gravy/signal/ipos"
 	"github.com/d-sparks/gravy/signal/movingaverage"
 	"github.com/d-sparks/gravy/strategy"
 	"github.com/d-sparks/gravy/strategy/buyandhold"
@@ -46,12 +47,11 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 	}
 
 	// Initialize signals.
-	algorithm.signals[movingaverage.Name(100)] = movingaverage.NewMovingAverage(100)
-	algorithm.signalOrder = append(algorithm.signalOrder, movingaverage.Name(100))
+	t.AddSignal(movingaverage.Name(100), movingaverage.NewMovingAverage(100))
+	t.AddSignal(ipos.Name, ipos.New())
 
 	// Initialize strategies.
-	algorithm.strategies[buyandhold.Name] = buyandhold.NewBuyAndHold()
-	algorithm.strategyOrder = append(algorithm.strategyOrder, buyandhold.Name)
+	t.AddStrategy(buyandhold.Name, buyandhold.NewBuyAndHold())
 
 	// Order of algorithm headers. Use internal name (don't include algHeaders).
 	algorithm.algorithmHeaders = []string{"date"}
@@ -62,6 +62,20 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 	algorithm.nonhiddenHeaders.Add(stratHeader(buyandhold.Name, "value"))
 
 	return algorithm
+}
+
+// Convenience for adding signals, since we also track the order they were added (to keep CSV
+// header columns in order when printing debug).
+func (t *TradingAlgorithm) AddSignal(name string, signal signal.Signal) {
+	t.signals[name] = signal
+	t.signalOrder = append(t.signalOrder, name)
+}
+
+// Convenience for adding strategies, since we also track the order they were added (to keep CSV
+// header columns in order when printing debug).
+func (t *TradingAlgorithm) AddStrategy(name string, strategy strategy.Strategy) {
+	t.strategies[name] = strategy
+	t.strategyOrder = append(t.strategyOrder, name)
 }
 
 // Calculates data, signals, strategies, and executes trades.
