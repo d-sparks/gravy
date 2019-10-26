@@ -19,11 +19,14 @@ type MovingAverage struct {
 }
 
 func NewMovingAverage(days int) *MovingAverage {
-	return &MovingAverage{
-		days:         days,
-		oldestIx:     map[string]int{},
-		observations: map[string][]float64{},
-	}
+	return signal.NewCachedSignal(
+		&MovingAverage{
+			days:         days,
+			oldestIx:     map[string]int{},
+			observations: map[string][]float64{},
+		},
+		time.Hour*24,
+	)
 }
 
 func (m *MovingAverage) Compute(date time.Time, stores map[string]db.Store) signal.SignalOutput {
