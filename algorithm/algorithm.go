@@ -48,20 +48,19 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 	}
 
 	// Initialize signals.
-	t.AddSignal(movingaverage.Name(100), movingaverage.NewMovingAverage(100))
-	t.AddSignal(ipos.Name, ipos.New())
-	t.AddSignal(unlistings.Name, unlistings.New())
+	algorithm.AddSignal(movingaverage.Name(100), movingaverage.New(100))
+	algorithm.AddSignal(ipos.Name, ipos.New())
+	algorithm.AddSignal(unlistings.Name, unlistings.New())
 
 	// Initialize strategies.
-	t.AddStrategy(buyandhold.Name, buyandhold.NewBuyAndHold())
+	algorithm.AddStrategy(buyandhold.Name(100), buyandhold.New(100))
 
 	// Order of algorithm headers. Use internal name (don't include algHeaders).
 	algorithm.algorithmHeaders = []string{"date"}
 
-	// Whitelist anynonhidden headers. Should match actual csv header, so use algHeader,
+	// Whitelist any nonhidden headers. Should match actual csv header, so use algHeader,
 	// stratHeader, and signalHeader.
 	algorithm.nonhiddenHeaders.Add(algHeader("date"))
-	algorithm.nonhiddenHeaders.Add(stratHeader(buyandhold.Name, "value"))
 
 	return algorithm
 }

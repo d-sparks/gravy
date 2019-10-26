@@ -48,7 +48,6 @@ func GetDataStores(dailywindowFilename string) map[string]db.Store {
 func WriteCSVHeader(headers []string, out *os.File) {
 	out.WriteString("id")
 	for _, header := range headers {
-		log.Printf("Writing line: %s\n", header)
 		out.WriteString("," + header)
 	}
 	out.WriteString("\n")
@@ -84,11 +83,8 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 
 	// Iterate over dates and simulate trading, export CSV.
 	WriteCSVHeader(algorithm.Headers(), out)
-	for _, header := range algorithm.Headers() {
-		log.Printf("Header %s\n", header)
-	}
 	hideAfterIndex := len(dates) / 2
-	for i := *skip; i < len(dates); i++ {
+	for i := skip; i < len(dates); i++ {
 		algorithm.Trade(dates[i])
 		hide := i > hideAfterIndex
 		WriteCSVLine(i, algorithm.Headers(), algorithm.Debug(hide), out)

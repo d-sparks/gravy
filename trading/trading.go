@@ -85,27 +85,43 @@ func (a *AbstractPortfolio) Value(prices Prices) float64 {
 
 // Mean value during a window.
 func (a *AbstractPortfolio) MeanValue(window Window) float64 {
-	value := a.CashUSD
+	sum := a.CashUSD
+	c := 0.0
 	for symbol, units := range a.Stocks {
-		value += window.MeanPrice(symbol) * units
+		// sum += window.Close[symbol] * units //, with Kahan summation
+		v := window.MeanPrice(symbol)*units - c
+		t := sum + v
+		c = (t - sum) - v
+		sum = t
+
 	}
-	return value
+	return sum
 }
 
 // (Re)balance the stock investments of an abstract portfolio.
-func (a *AbstractPortfolio) RebalanceOnMeanPrice(window Window) {
+func (a *AbstractPortfolio) RebalanceOvernight(window, previousWindow Window) float64 {
+	previousValue := a.MeanValue(previousWindow)
 	// "Sell" any stock currently tracked at the mean window price.
+	reinvest := 0.0
+	if previousWindow.Symbols == nil {
+		reinvest += a.CashUSD
+		a.CashUSD = 0.0
+	}
 	for symbol, shares := range a.Stocks {
-		a.CashUSD += shares * window.MeanPrice(symbol)
+		if window.Symbols.Contains(symbol) {
+			reinvest += window.Close[symbol] * shares
+		} else {
+			a.CashUSD += previousWindow.Close[symbol]
+		}
 		delete(a.Stocks, symbol)
 	}
-	// "Buy" all available stocks by investing liquid equally into each stock.
-	buy := a.CashUSD / float64(len(window.Symbols))
+	// "Buy" stock, but not reinvesting for unlisted symbols.
 	for symbol, _ := range window.Symbols {
-		price := window.MeanPrice(symbol)
-		a.Stocks[symbol] = buy / price
+		price := window.Close[symbol]
+		a.Stocks[symbol] = reinvest / (price * float64(len(window.Symbols)))
 	}
-	a.CashUSD = 0.0
+
+	return a.MeanValue(window) - previousValue
 }
 
 // Returns a capital distribution for an abstract portfolio based on mean price over a window.
@@ -161,6 +177,47 @@ func (a *CapitalDistribution) SetStock(symbol string, value float64) {
 func (a *CapitalDistribution) GetStock(symbol string) float64 {
 	a.ensureDistribution()
 	return a.stocks[symbol]
+}
+
+// Converts to the equivalent abstract portfolio at given prices.
+func (a *CapitalDistribution) ToAbstractPortfolioOnPrices(
+	prices Prices,
+	value float64,
+) AbstractPortfolio {
+	portfolio := NewAbstractPortfolio(0.0)
+	for symbol, allocation := range a.stocks {
+		portfolio.Stocks[symbol] = allocation * value / prices[symbol]
+	}
+	return portfolio
+}
+
+// Return an abstract portfolio representing a capital distribtuion at the given window's mean
+// price.
+func (a *CapitalDistribution) ToAbstractPortfolioOnMeanPrice(
+	window Window,
+	value float64,
+) AbstractPortfolio {
+	portfolio := NewAbstractPortfolio(0.0)
+	for symbol, allocation := range a.stocks {
+		portfolio.Stocks[symbol] = allocation * value / window.MeanPrice(symbol)
+	}
+	return portfolio
+}
+
+// Expected relative change from window open to close.
+func (a *CapitalDistribution) WindowPerformanceAtMeanPrice(window Window) float64 {
+	a.ensureDistribution()
+	perf := 0.0
+	for symbol, exposure := range a.stocks {
+		if exposure == 0.0 {
+			continue
+		} else if !window.Symbols.Contains(symbol) {
+			log.Fatalf("Capital in unlisted symbol")
+		}
+		open := window.Open[symbol]
+		perf += exposure * (window.Close[symbol] - open) / open
+	}
+	return perf
 }
 
 // TODO: include enough data for other types of orders and shorts.
