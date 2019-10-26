@@ -1,4 +1,4 @@
-package exchange
+package gravy
 
 import "github.com/d-sparks/gravy/trading"
 

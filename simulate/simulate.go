@@ -6,10 +6,10 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/d-sparks/gravy"
 	"github.com/d-sparks/gravy/algorithm"
 	"github.com/d-sparks/gravy/db"
 	"github.com/d-sparks/gravy/db/dailywindow"
-	"github.com/d-sparks/gravy/exchange"
 	"github.com/d-sparks/gravy/gravyutil"
 )
 
@@ -52,7 +52,7 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 	dates := dailywindow.Dates()
 
 	// Mock exchange.
-	exchange := exchange.NewMockExchange(seed)
+	exchange := gravy.NewMockExchange(seed)
 
 	// Make trading algorithm.
 	algorithm := algorithm.NewTradingAlgorithm(stores, exchange)

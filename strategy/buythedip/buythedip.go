@@ -12,6 +12,7 @@ type BuyTheDip struct {
 	initialized    bool
 }
 
-func NewBuyAndHold() *BuyAndHold {
-	return &BuyAndHold{desire: trading.NewAbstractPortfolio(1.0), initialized: false}
-}
+// TODO(desa): not sure what was intended here
+//func NewBuyAndHold() *BuyAndHold {
+//	return &BuyAndHold{desire: trading.NewAbstractPortfolio(1.0), initialized: false}
+//}
