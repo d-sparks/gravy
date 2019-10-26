@@ -38,7 +38,7 @@ func (b *BuyAndHold) Run(
 		// Initialize by investing seed equally in all available stocks.
 		frac := b.desire.CashUSD / float64(len(window.Open))
 		for symbol, _ := range window.Open {
-			b.desire.Stocks[symbol] = frac
+			b.desire.Stocks[symbol] = frac / window.Close[symbol]
 		}
 		b.desire.CashUSD = 0.0
 		b.initialized = true

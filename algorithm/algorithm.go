@@ -59,6 +59,7 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange exchange.Exchange)
 	// Whitelist anynonhidden headers. Should match actual csv header, so use algHeader,
 	// stratHeader, and signalHeader.
 	algorithm.nonhiddenHeaders.Add(algHeader("date"))
+	algorithm.nonhiddenHeaders.Add(stratHeader(buyandhold.Name, "value"))
 
 	return algorithm
 }
@@ -103,7 +104,7 @@ func (t *TradingAlgorithm) Headers() []string {
 			}
 		}
 		for _, strat := range t.strategyOrder {
-			for _, header := range t.signals[strat].Headers() {
+			for _, header := range t.strategies[strat].Headers() {
 				t.headers = append(t.headers, stratHeader(strat, header))
 			}
 		}

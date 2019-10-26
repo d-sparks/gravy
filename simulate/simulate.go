@@ -13,7 +13,7 @@ import (
 	"github.com/d-sparks/gravy/gravyutil"
 )
 
-var windows = flag.String("windows", "./data/kaggle/historical_as_ticks.json", "Kaggledata")
+var windows = flag.String("windows", "./data/kaggle/historical_as_windows.json", "Kaggledata")
 var symbols = flag.String("symbols", "./data/kaggle/historical_stocks.csv", "Stock symbols")
 var output = flag.String("output", "./results", "Results output")
 
@@ -22,6 +22,15 @@ func GetDataStores(dailywindowFilename string) map[string]db.Store {
 	stores := map[string]db.Store{}
 	stores[dailywindow.Name] = dailywindow.NewInMemoryStore(dailywindowFilename)
 	return stores
+}
+
+// Writes a CSV header.
+func WriteCSVHeader(headers []string, out *bufio.Writer) {
+	out.WriteString("id")
+	for _, header := range headers {
+		out.WriteString("," + header)
+	}
+	out.WriteString("\n")
 }
 
 // Writes a CSV line from a key order and kv. Includes an integer ID line.
@@ -51,7 +60,8 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 	// Create output file.
 	out := gravyutil.FileWriterOrDie(output)
 
-	// Iterate over dates and simulate trading.
+	// Iterate over dates and simulate trading, export CSV.
+	WriteCSVHeader(algorithm.Headers(), out)
 	skipUntilIndex := 3650
 	hideAfterIndex := len(dates) / 2
 	for i := skipUntilIndex; i < len(dates); i++ {
