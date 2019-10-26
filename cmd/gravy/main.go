@@ -24,10 +24,6 @@ func Execute() {
 	}
 }
 
-func init() {
-	rootCmd.AddCommand(simulateCmd)
-}
-
 func main() {
 	Execute()
 }

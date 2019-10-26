@@ -24,6 +24,7 @@ var symbols string
 var output string
 
 func init() {
+	rootCmd.AddCommand(simulateCmd)
 	simulateCmd.Flags().StringVarP(&windows, "windows", "w", "./data/kaggle/historical_as_windows.json", "Kaggledata")
 	simulateCmd.Flags().StringVarP(&symbols, "symbols", "s", "./data/kaggle/historical_stocks.csv", "Stock symbols")
 	simulateCmd.Flags().StringVarP(&output, "output", "o", "./results", "Results output")
