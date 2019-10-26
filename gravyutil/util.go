@@ -14,10 +14,10 @@ func FatalIfErr(err error) {
 }
 
 // Create a file and wrap it in a bufio.Writer, or die.
-func FileWriterOrDie(filename string) *bufio.Writer {
+func FileOrDie(filename string) *os.File {
 	file, err := os.Create(filename)
 	FatalIfErr(err)
-	return bufio.NewWriter(file)
+	return file
 }
 
 // Open a file and wrap it in a bufio.Scanner with large buffer, or die.
