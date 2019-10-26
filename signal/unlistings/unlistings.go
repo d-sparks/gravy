@@ -16,9 +16,9 @@ type Unlistings struct {
 	previousSymbols stringset.StringSet
 }
 
-func New() Unlistings {
+func New() *signal.CachedSignal {
 	return signal.NewCachedSignal(
-		Unlistings{previousSymbols: stringset.StringSet{}},
+		&Unlistings{previousSymbols: stringset.StringSet{}},
 		time.Hour*24*365,
 	)
 }

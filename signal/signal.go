@@ -31,8 +31,8 @@ type CachedSignal struct {
 	expireAfter time.Duration
 }
 
-func NewCachedSignal(signal Signal, expireAfter time.Duration) SignalCache {
-	return SignalCache{
+func NewCachedSignal(signal Signal, expireAfter time.Duration) *CachedSignal {
+	return &CachedSignal{
 		cache:       map[time.Time]SignalOutput{},
 		signal:      signal,
 		expireAfter: expireAfter,
@@ -42,7 +42,7 @@ func NewCachedSignal(signal Signal, expireAfter time.Duration) SignalCache {
 // Evict oldest cache entries.
 func (c *CachedSignal) Evict(date time.Time) {
 	for cacheDate, _ := range c.cache {
-		if date.Sub(cacheDate).Nanoseconds() > c.expireAfter {
+		if date.Sub(cacheDate).Nanoseconds() > c.expireAfter.Nanoseconds() {
 			delete(c.cache, cacheDate)
 		}
 	}
@@ -50,7 +50,7 @@ func (c *CachedSignal) Evict(date time.Time) {
 
 // Compute and add to cache or serve from cache. Also evicts the cache.
 func (c *CachedSignal) Compute(date time.Time, stores map[string]db.Store) SignalOutput {
-	c.Evict()
+	c.Evict(date)
 	if _, ok := c.cache[date]; !ok {
 		c.cache[date] = c.signal.Compute(date, stores)
 	}

@@ -16,9 +16,9 @@ type IPOs struct {
 	previousSymbols stringset.StringSet
 }
 
-func New() IPOs {
+func New() *signal.CachedSignal {
 	return signal.NewCachedSignal(
-		IPOs{previousSymbols: stringset.StringSet{}},
+		&IPOs{previousSymbols: stringset.StringSet{}},
 		time.Hour*24*365, // one year
 	)
 }

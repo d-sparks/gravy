@@ -8,9 +8,9 @@ import (
 	"github.com/d-sparks/gravy/trading"
 )
 
-// Strategy outputs about desired position. Will eventually include other data like confidence.
+// Strategy outputs about recommended position. Will eventually include other data like confidence.
 type StrategyOutput struct {
-	DesiredPortfolio trading.AbstractPortfolio
+	CapitalDistribution *trading.CapitalDistribution
 }
 
 // Strategies are used in TradingAlgorithm. They represent abstract strategies but don't have the

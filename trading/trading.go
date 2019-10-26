@@ -24,6 +24,10 @@ type Window struct {
 	Symbols stringset.StringSet
 }
 
+func (w Window) MeanPrice(symbol string) float64 {
+	return (w.High[symbol] + w.Low[symbol]) / 2.0
+}
+
 // Portfolio.
 type Portfolio struct {
 	Stocks  map[string]int
@@ -39,36 +43,104 @@ func NewPortfolio(seed float64) Portfolio {
 }
 
 // Returns mature value of a position given a Tick.
-func (p Portfolio) Value(prices Prices) float64 {
+func (p *Portfolio) Value(prices Prices) float64 {
 	value := p.CashUSD
-	for symbol, quantity := range p.Stocks {
-		value += float64(quantity) * prices[symbol]
+	for symbol, units := range p.Stocks {
+		value += float64(units) * prices[symbol]
 	}
 	return value
 }
 
-// Abstract portfolio. A probability distribution over potential assets.
+// Mean value during a window.
+func (p *Portfolio) MeanValue(window Window) float64 {
+	value := p.CashUSD
+	for symbol, units := range p.Stocks {
+		value += window.MeanPrice(symbol) * float64(units)
+	}
+	return value
+}
+
+// AbstractPortfolio. Can have fractional/negative shares.
 type AbstractPortfolio struct {
+	Stocks  map[string]float64
+	CashUSD float64
+}
+
+func NewAbstractPortfolio(seed float64) AbstractPortfolio {
+	return AbstractPortfolio{
+		Stocks:  map[string]float64{},
+		CashUSD: seed,
+	}
+
+}
+
+// Returns mature value of a position given a Tick.
+func (a *AbstractPortfolio) Value(prices Prices) float64 {
+	value := a.CashUSD
+	for symbol, units := range a.Stocks {
+		value += float64(units) * prices[symbol]
+	}
+	return value
+}
+
+// Mean value during a window.
+func (a *AbstractPortfolio) MeanValue(window Window) float64 {
+	value := a.CashUSD
+	for symbol, units := range a.Stocks {
+		value += window.MeanPrice(symbol) * units
+	}
+	return value
+}
+
+// (Re)balance the stock investments of an abstract portfolio.
+func (a *AbstractPortfolio) RebalanceOnMeanPrice(window Window) {
+	// "Sell" any stock currently tracked at the mean window price.
+	for symbol, shares := range a.Stocks {
+		a.CashUSD += shares * window.MeanPrice(symbol)
+		delete(a.Stocks, symbol)
+	}
+	// "Buy" all available stocks by investing liquid equally into each stock.
+	buy := a.CashUSD / float64(len(window.Symbols))
+	for symbol, _ := range window.Symbols {
+		price := window.MeanPrice(symbol)
+		a.Stocks[symbol] = buy / price
+	}
+	a.CashUSD = 0.0
+}
+
+// Returns a capital distribution for an abstract portfolio based on mean price over a window.
+func (a *AbstractPortfolio) ToCapitalDistributionOnMeanPrice(
+	window Window,
+) *CapitalDistribution {
+	distribution := NewCapitalDistribution()
+	for symbol, units := range a.Stocks {
+		distribution.SetStock(symbol, units*window.MeanPrice(symbol))
+	}
+	return &distribution
+}
+
+// CapitalDistribution portfolio. A probability distribution over potential assets.
+type CapitalDistribution struct {
 	stocks map[string]float64
 	total  float64
 }
 
-func NewAbstractPortfolio() AbstractPortfolio {
-	return AbstractPortfolio{stocks: map[string]float64{}, total: 0.0}
+func NewCapitalDistribution() CapitalDistribution {
+	return CapitalDistribution{stocks: map[string]float64{}, total: 0.0}
 }
 
-func NewBalancedAbstractPortfolio(stocksPrices Prices) {
-	portfolio := NewAbstractPortfolio()
+func NewBalancedCapitalDistribution(prices Prices) CapitalDistribution {
+	distribution := NewCapitalDistribution()
 	for symbol, _ := range prices {
-		portfolio.SetStock(symbol, 1.0)
+		distribution.SetStock(symbol, 1.0)
 	}
-	return portfolio
+	return distribution
 }
 
 // Ensures that the abstract portfolio is normalized to be a distribution.
-func (a *AbstractPortfolio) ensureDistribution() {
+func (a *CapitalDistribution) ensureDistribution() {
 	if a.total == 0.0 {
-		log.Fatalf("Tried to create distribution in AbstractPortfolio before SetStock.")
+		log.Fatalf("Tried to create distribution in CapitalDistribution before SetStock.")
 	} else if a.total == 1.0 {
 		return
 	}
@@ -79,39 +151,16 @@ func (a *AbstractPortfolio) ensureDistribution() {
 }
 
 // Sets a value for stock and updates the total.
-func (a *AbstractPortfolio) SetStock(symbol string, value float64) {
+func (a *CapitalDistribution) SetStock(symbol string, value float64) {
 	a.total -= a.stocks[symbol]
 	a.stocks[symbol] = value
 	a.total += value
 }
 
 // Gets stock (after ensuring the portfolio is a distribution).
-func (a *AbstractPortfolio) GetStock(symbol string) float64 {
+func (a *CapitalDistribution) GetStock(symbol string) float64 {
 	a.ensureDistribution()
 	return a.stocks[symbol]
-}
-
-// Balances an abstract portfolio equally into all stocks. Returns any current value for unlisted
-// stocks.
-func (p *AbstractPortfolio) Balance(prices, previousPrices Prices, seed float64) {
-	cashUSD := seed
-	for symbol, units := range p.Stocks {
-		if previousPrices != nil {
-			// For symbols that are no longer listed, divest at previous closing price.
-			if _, ok := prices[symbol]; !ok {
-				cashUSD += p.Stocks[symbol] * previousPrices[symbol]
-			}
-		}
-		delete(p.Stocks, symbol)
-	}
-
-	// Invest equally in all stocks.
-	frac := 1.0 / len(prices)
-	for symbol, price := range prices {
-		b.Stocks[symbol] = frac / price
-	}
-
-	return cashout
 }
 
 // TODO: include enough data for other types of orders and shorts.
