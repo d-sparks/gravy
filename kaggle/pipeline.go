@@ -1,9 +1,8 @@
-package main
+package kaggle
 
 import (
 	"encoding/csv"
 	"encoding/json"
-	"flag"
 	"io"
 	"os"
 	"sort"
@@ -14,18 +13,9 @@ import (
 	"github.com/d-sparks/gravy/trading"
 )
 
-var input = flag.String("input", "./data/kaggle/historical_stock_prices.csv", "Kaggledata input")
-var output = flag.String("output", "./data/kaggle/historical_as_windows.json", "Normalized output")
-
-func ParseOrDie(floatString string) float64 {
-	float, err := strconv.ParseFloat(floatString, 64)
-	gravyutil.FatalIfErr(err)
-	return float
-}
-
-func main() {
+func Pipeline(input, output string) {
 	// Open input file for reading as CSV
-	f, err := os.Open(*input)
+	f, err := os.Open(input)
 	gravyutil.FatalIfErr(err)
 	reader := csv.NewReader(f)
 
@@ -79,7 +69,7 @@ func main() {
 	dates.Sort()
 
 	// Open output file for writing as rows of json ticks
-	out, err := os.Create(*output)
+	out, err := os.Create(output)
 	gravyutil.FatalIfErr(err)
 	defer out.Close()
 
@@ -93,4 +83,10 @@ func main() {
 		_, err = out.WriteString(tick)
 		gravyutil.FatalIfErr(err)
 	}
+}
+
+func ParseOrDie(floatString string) float64 {
+	float, err := strconv.ParseFloat(floatString, 64)
+	gravyutil.FatalIfErr(err)
+	return float
 }
