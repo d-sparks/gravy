@@ -10,11 +10,6 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "gravy",
 	Short: "Gravy command line tool",
-	Run:   rootFn,
-}
-
-func rootFn(cmd *cobra.Command, args []string) {
-	fmt.Println("hi")
 }
 
 func Execute() {
