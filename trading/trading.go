@@ -176,10 +176,12 @@ func (a *CapitalDistribution) RelativeWindowPerformance(window Window) float64 {
 
 // TODO: include enough data for other types of orders and shorts.
 type Order struct {
-	StopPrice  float64
-	LimitPrice float64
-	Volume     int
+	Type   string
+	Ticker string
+	Price  float64
+	Volume int
 }
 
+// Not sure what we're going to want here.
 type OrderOutcome struct {
 }
