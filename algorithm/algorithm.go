@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/Clever/go-utils/stringset"
+	"github.com/d-sparks/gravy"
 	"github.com/d-sparks/gravy/db"
-	"github.com/d-sparks/gravy/exchange"
 	"github.com/d-sparks/gravy/signal"
 	"github.com/d-sparks/gravy/signal/movingaverage"
 	"github.com/d-sparks/gravy/strategy"
@@ -20,7 +20,7 @@ type TradingAlgorithm struct {
 	stores     map[string]db.Store
 	signals    map[string]signal.Signal
 	strategies map[string]strategy.Strategy
-	exchange   exchange.Exchange
+	exchange   gravy.Exchange
 
 	// For debug.
 	signalOrder      []string
@@ -31,7 +31,7 @@ type TradingAlgorithm struct {
 	debug            map[string]string
 }
 
-func NewTradingAlgorithm(stores map[string]db.Store, exchange exchange.Exchange) TradingAlgorithm {
+func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) TradingAlgorithm {
 	// Initialize all members.
 	algorithm := TradingAlgorithm{
 		stores:     stores,

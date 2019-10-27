@@ -2,20 +2,38 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"log"
 	"strconv"
 
 	"github.com/d-sparks/gravy/algorithm"
 	"github.com/d-sparks/gravy/db"
 	"github.com/d-sparks/gravy/db/dailywindow"
-	"github.com/d-sparks/gravy/exchange"
 	"github.com/d-sparks/gravy/gravyutil"
+	"github.com/d-sparks/gravy/mock"
+	"github.com/spf13/cobra"
 )
 
-var windows = flag.String("windows", "./data/kaggle/historical_as_windows.json", "Kaggledata")
-var symbols = flag.String("symbols", "./data/kaggle/historical_stocks.csv", "Stock symbols")
-var output = flag.String("output", "./results", "Results output")
+var simulateCmd = &cobra.Command{
+	Use:   "simulate",
+	Short: "Simulate a trading session",
+	Run:   simulateFn,
+}
+
+var windows string
+var symbols string
+var output string
+
+func init() {
+	rootCmd.AddCommand(simulateCmd)
+	simulateCmd.Flags().StringVarP(&windows, "windows", "w", "./data/kaggle/historical_as_windows.json", "Kaggledata")
+	simulateCmd.Flags().StringVarP(&symbols, "symbols", "s", "./data/kaggle/historical_stocks.csv", "Stock symbols")
+	simulateCmd.Flags().StringVarP(&output, "output", "o", "./results", "Results output")
+}
+
+func simulateFn(cmd *cobra.Command, args []string) {
+	stores := GetDataStores(windows)
+	Simulate(stores, 1.0, output)
+}
 
 // Default stores, typically in memory stores.
 func GetDataStores(dailywindowFilename string) map[string]db.Store {
@@ -52,7 +70,7 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 	dates := dailywindow.Dates()
 
 	// Mock exchange.
-	exchange := exchange.NewMockExchange(seed)
+	exchange := mock.NewExchange(seed)
 
 	// Make trading algorithm.
 	algorithm := algorithm.NewTradingAlgorithm(stores, exchange)
@@ -69,10 +87,4 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 		hide := i > hideAfterIndex
 		WriteCSVLine(i, algorithm.Headers(), algorithm.Debug(hide), out)
 	}
-}
-
-func main() {
-	flag.Parse()
-	stores := GetDataStores(*windows)
-	Simulate(stores, 1.0, *output)
 }
