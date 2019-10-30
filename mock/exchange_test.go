@@ -32,16 +32,16 @@ func TestExchange(t *testing.T) {
 	e.SetPrices(prices)
 
 	order := trading.Order{
-		Type:   "stop",
+		Type:   trading.SellStopOrderType,
 		Ticker: "BAR",
 		Volume: 5,
 		Price:  90,
 	}
 	_ = e.SubmitOrder(order)
 
-	t.Run("limit order is applied if it falls within cash on hand", func(t *testing.T) {
+	t.Run("buy stop order is applied if it falls within cash on hand", func(t *testing.T) {
 		order := trading.Order{
-			Type:   "limit",
+			Type:   trading.BuyStopOrderType,
 			Ticker: "FOO",
 			Volume: 20,
 			Price:  9,
@@ -59,9 +59,9 @@ func TestExchange(t *testing.T) {
 
 	})
 
-	t.Run("new stop order is if price drops below expected position", func(t *testing.T) {
+	t.Run("new sell stop order is if price drops below expected position", func(t *testing.T) {
 		order := trading.Order{
-			Type:   "stop",
+			Type:   trading.SellStopOrderType,
 			Ticker: "FOO",
 			Volume: 15,
 			Price:  8,

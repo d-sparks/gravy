@@ -174,9 +174,85 @@ func (a *CapitalDistribution) RelativeWindowPerformance(window Window) float64 {
 	return perf
 }
 
-// TODO: include enough data for other types of orders and shorts.
+// OrderType is the type of order that will be submitted. The definitions
+// for each type can be found https://www.thebalance.com/making-sense-of-day-trading-order-types-1031387
+type OrderType int8
+
+const (
+	// This ensures that the zero value is not a valid OrderType
+	UnknownOrderType OrderType = iota
+
+	// BuyMarketOrderType buys you whatever price is available in the marketplace. The problem
+	// with market orders is that you don't know the exact price you will end up buying at
+	BuyMarketOrderType = iota + 1
+
+	// SellMarketOrderType sells you whatever price is available in the marketplace. The problem
+	// with market orders is that you don't know the exact price you will end up selling at
+	SellMarketOrderType
+
+	// BuyLimitOrderType is an order that is placed below the current price. The order
+	// is only filled at or below the limit price. Buy limits are also used as targets,
+	// to get you out of a profitable short trade.
+	BuyLimitOrderType
+
+	// SellLimitOrderType is an order to sell that is placed above the current price. The order
+	// is only filled at or above the limit price. Sell limits are also often used as targets,
+	// to get you out of a profitable long trade.
+	SellLimitOrderType
+
+	// BuyStopOrderType is an order to buy that is place above the current price. The order is only
+	// is only filled at or above the stop price. Buy stops act like market orders once the buy stop
+	// price is reached. They are also useful for buying breakouts above resistance, but you can't be
+	// sure of the exact price you will end up buying at. Therefore, they are useful for using as a stop
+	// loss on short positions, when you must get out because the price is moving against you.
+	BuyStopOrderType
+
+	// SellStopOrderType is an order to sell that is placed below the current price. The order will only
+	// be filled at or below the stop price. This order can be used to get out of a long trade. Sell stops
+	// act like market orders once the sell stop price is reached. Therefore, they are useful for using as a
+	// stop loss on long positions, when you must get out because the price is moving against you.
+	SellStopOrderType
+
+	// BuyStopLimitOrder is very similar to a Buy Stop order, except that it doesn't act like a market order. The
+	// buy stop limit will only fill at the buy stop limit price or lower. A buy stop limit order is useful for buying
+	// when the price breaks above a particular level (such a resistance) but you only want to buy at a specific price
+	// or lower when that event occurs.
+	BuyStopLimitOrderType
+
+	// SellStopLimitOrder is very similar to a Sell Stop order, except that it doesn't act like a market order. The sell
+	// stop limit will only fill at the price equivalent to the limit price attached to the order, or higher. A sell stop
+	// limit order is useful for selling when the price breaks below a particular level (such a support), but you only want
+	// to sell at a specific price or higher when that event occurs.
+	SellStopLimitOrderType
+)
+
+// String implements string.Stringer for OrderType.
+func (t OrderType) String() string {
+	switch t {
+	case BuyMarketOrderType:
+		return "buy_market"
+	case SellMarketOrderType:
+		return "sell_market"
+	case BuyLimitOrderType:
+		return "buy_limit"
+	case SellLimitOrderType:
+		return "sell_limit"
+	case BuyStopOrderType:
+		return "buy_stop"
+	case SellStopOrderType:
+		return "sell_stop"
+	case BuyStopLimitOrderType:
+		return "buy_stop_limit"
+	case SellStopLimitOrderType:
+		return "sell_stop_limit"
+	default:
+		return "unknown"
+	}
+}
+
+// Order is a trading order. It specifies the volume, price, ticker and type.
 type Order struct {
-	Type   string
+	Type   OrderType
 	Ticker string
 	Price  float64
 	Volume int
