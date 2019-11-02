@@ -40,7 +40,7 @@ func simulateFn(cmd *cobra.Command, args []string) {
 // Default stores, typically in memory stores.
 func GetDataStores(dailywindowFilename string) map[string]db.Store {
 	stores := map[string]db.Store{}
-	stores[dailywindow.Name] = dailywindow.NewInMemoryStore(dailywindowFilename)
+	stores[dailywindow.Name] = dailywindow.NewInMemoryStoreFromFile(dailywindowFilename)
 	return stores
 }
 

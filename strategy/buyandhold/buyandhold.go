@@ -61,7 +61,7 @@ func (b *BuyAndHold) Run(
 	}
 
 	// Track performance.
-	perf := b.distribution.WindowPerformanceAtMeanPrice(window)
+	perf := b.distribution.RelativeWindowPerformance(window)
 	if b.days >= b.period {
 		b.periodPerf /= (1.0 + b.perf[b.days%b.period])
 	}

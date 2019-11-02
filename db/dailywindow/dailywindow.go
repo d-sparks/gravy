@@ -22,6 +22,7 @@ func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{data: map[time.Time]*trading.Window{}, dates: []time.Time{}}
 }
 
+// TODO(dansparks): Add functionality to skip the first N lines.
 func NewInMemoryStoreFromFile(filename string) *InMemoryStore {
 	store := InMemoryStore{data: map[time.Time]*trading.Window{}}
 	scanner := gravyutil.FileScannerOrDie(filename)
