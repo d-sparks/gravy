@@ -24,7 +24,7 @@ type Window struct {
 	Symbols stringset.StringSet
 }
 
-func (w Window) MeanPrice(symbol string) float64 {
+func (w Window) MeanHighLowPrice(symbol string) float64 {
 	return (w.High[symbol] + w.Low[symbol]) / 2.0
 }
 
@@ -52,10 +52,15 @@ func (p *Portfolio) Value(prices Prices) float64 {
 }
 
 // Mean value during a window.
-func (p *Portfolio) MeanValue(window Window) float64 {
+func (p *Portfolio) MeanHighLowValue(window Window) float64 {
 	value := p.CashUSD
+	c := 0.0
 	for symbol, units := range p.Stocks {
-		value += window.MeanPrice(symbol) * float64(units)
+		// value += window.Close[symbol] * units //, with Kahan summation
+		v := window.MeanHighLowPrice(symbol)*float64(units) - c
+		t := value + v
+		c = (t - value) - v
+		value = t
 	}
 	return value
 }
@@ -71,7 +76,6 @@ func NewAbstractPortfolio(seed float64) AbstractPortfolio {
 		Stocks:  map[string]float64{},
 		CashUSD: seed,
 	}
-
 }
 
 // Returns mature value of a position given a Tick.
@@ -84,55 +88,17 @@ func (a *AbstractPortfolio) Value(prices Prices) float64 {
 }
 
 // Mean value during a window.
-func (a *AbstractPortfolio) MeanValue(window Window) float64 {
-	sum := a.CashUSD
+func (a *AbstractPortfolio) MeanHighLowValue(window Window) float64 {
+	value := a.CashUSD
 	c := 0.0
 	for symbol, units := range a.Stocks {
-		// sum += window.Close[symbol] * units //, with Kahan summation
-		v := window.MeanPrice(symbol)*units - c
-		t := sum + v
-		c = (t - sum) - v
-		sum = t
-
+		// value += window.Close[symbol] * units //, with Kahan summation
+		v := window.MeanHighLowPrice(symbol)*units - c
+		t := value + v
+		c = (t - value) - v
+		value = t
 	}
-	return sum
-}
-
-// (Re)balance the stock investments of an abstract portfolio.
-func (a *AbstractPortfolio) RebalanceOvernight(window, previousWindow Window) float64 {
-	previousValue := a.MeanValue(previousWindow)
-	// "Sell" any stock currently tracked at the mean window price.
-	reinvest := 0.0
-	if previousWindow.Symbols == nil {
-		reinvest += a.CashUSD
-		a.CashUSD = 0.0
-	}
-	for symbol, shares := range a.Stocks {
-		if window.Symbols.Contains(symbol) {
-			reinvest += window.Close[symbol] * shares
-		} else {
-			a.CashUSD += previousWindow.Close[symbol]
-		}
-		delete(a.Stocks, symbol)
-	}
-	// "Buy" stock, but not reinvesting for unlisted symbols.
-	for symbol, _ := range window.Symbols {
-		price := window.Close[symbol]
-		a.Stocks[symbol] = reinvest / (price * float64(len(window.Symbols)))
-	}
-
-	return a.MeanValue(window) - previousValue
-}
-
-// Returns a capital distribution for an abstract portfolio based on mean price over a window.
-func (a *AbstractPortfolio) ToCapitalDistributionOnMeanPrice(
-	window Window,
-) *CapitalDistribution {
-	distribution := NewCapitalDistribution()
-	for symbol, units := range a.Stocks {
-		distribution.SetStock(symbol, units*window.MeanPrice(symbol))
-	}
-	return &distribution
+	return value
 }
 
 // CapitalDistribution portfolio. A probability distribution over potential assets.
@@ -184,6 +150,7 @@ func (a *CapitalDistribution) ToAbstractPortfolioOnPrices(
 	prices Prices,
 	value float64,
 ) AbstractPortfolio {
+	a.ensureDistribution()
 	portfolio := NewAbstractPortfolio(0.0)
 	for symbol, allocation := range a.stocks {
 		portfolio.Stocks[symbol] = allocation * value / prices[symbol]
@@ -191,21 +158,8 @@ func (a *CapitalDistribution) ToAbstractPortfolioOnPrices(
 	return portfolio
 }
 
-// Return an abstract portfolio representing a capital distribtuion at the given window's mean
-// price.
-func (a *CapitalDistribution) ToAbstractPortfolioOnMeanPrice(
-	window Window,
-	value float64,
-) AbstractPortfolio {
-	portfolio := NewAbstractPortfolio(0.0)
-	for symbol, allocation := range a.stocks {
-		portfolio.Stocks[symbol] = allocation * value / window.MeanPrice(symbol)
-	}
-	return portfolio
-}
-
 // Expected relative change from window open to close.
-func (a *CapitalDistribution) WindowPerformanceAtMeanPrice(window Window) float64 {
+func (a *CapitalDistribution) RelativeWindowPerformance(window Window) float64 {
 	a.ensureDistribution()
 	perf := 0.0
 	for symbol, exposure := range a.stocks {
