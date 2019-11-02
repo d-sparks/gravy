@@ -18,7 +18,11 @@ type InMemoryStore struct {
 	dates []time.Time
 }
 
-func NewInMemoryStore(filename string) *InMemoryStore {
+func NewInMemoryStore() *InMemoryStore {
+	return &InMemoryStore{data: map[time.Time]*trading.Window{}, dates: []time.Time{}}
+}
+
+func NewInMemoryStoreFromFile(filename string) *InMemoryStore {
 	store := InMemoryStore{data: map[time.Time]*trading.Window{}}
 	scanner := gravyutil.FileScannerOrDie(filename)
 	log.Println("Beginning to load in memory dailywindow store...")
@@ -40,6 +44,11 @@ func NewInMemoryStore(filename string) *InMemoryStore {
 
 func (s *InMemoryStore) Get(date time.Time) db.Data {
 	return db.Data{Window: *s.data[date]}
+}
+
+func (s *InMemoryStore) Set(date time.Time, window *trading.Window) {
+	s.dates = append(s.dates, date)
+	s.data[date] = window
 }
 
 func (s *InMemoryStore) Dates() []time.Time {
