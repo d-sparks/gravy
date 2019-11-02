@@ -4,7 +4,6 @@ go 1.12
 
 require (
 	github.com/Clever/go-utils v0.0.0-20180917210021-2dac0ec6f2ac
-	github.com/d-sparks/ace-of-trades v0.0.0-20191022072657-7a5c9751d249
 	github.com/gonum/blas v0.0.0-20181208220705-f22b278b28ac // indirect
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect

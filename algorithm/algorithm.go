@@ -8,7 +8,9 @@ import (
 	"github.com/d-sparks/gravy"
 	"github.com/d-sparks/gravy/db"
 	"github.com/d-sparks/gravy/signal"
+	"github.com/d-sparks/gravy/signal/ipos"
 	"github.com/d-sparks/gravy/signal/movingaverage"
+	"github.com/d-sparks/gravy/signal/unlistings"
 	"github.com/d-sparks/gravy/strategy"
 	"github.com/d-sparks/gravy/strategy/buyandhold"
 	"github.com/d-sparks/gravy/trading"
@@ -46,22 +48,35 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 	}
 
 	// Initialize signals.
-	algorithm.signals[movingaverage.Name(100)] = movingaverage.NewMovingAverage(100)
-	algorithm.signalOrder = append(algorithm.signalOrder, movingaverage.Name(100))
+	algorithm.AddSignal(movingaverage.Name(100), movingaverage.New(100))
+	algorithm.AddSignal(ipos.Name, ipos.New())
+	algorithm.AddSignal(unlistings.Name, unlistings.New())
 
 	// Initialize strategies.
-	algorithm.strategies[buyandhold.Name] = buyandhold.NewBuyAndHold()
-	algorithm.strategyOrder = append(algorithm.strategyOrder, buyandhold.Name)
+	algorithm.AddStrategy(buyandhold.Name(100), buyandhold.New(100))
 
 	// Order of algorithm headers. Use internal name (don't include algHeaders).
 	algorithm.algorithmHeaders = []string{"date"}
 
-	// Whitelist anynonhidden headers. Should match actual csv header, so use algHeader,
+	// Whitelist any nonhidden headers. Should match actual csv header, so use algHeader,
 	// stratHeader, and signalHeader.
 	algorithm.nonhiddenHeaders.Add(algHeader("date"))
-	algorithm.nonhiddenHeaders.Add(stratHeader(buyandhold.Name, "value"))
 
 	return algorithm
+}
+
+// Convenience for adding signals, since we also track the order they were added (to keep CSV
+// header columns in order when printing debug).
+func (t *TradingAlgorithm) AddSignal(name string, signal signal.Signal) {
+	t.signals[name] = signal
+	t.signalOrder = append(t.signalOrder, name)
+}
+
+// Convenience for adding strategies, since we also track the order they were added (to keep CSV
+// header columns in order when printing debug).
+func (t *TradingAlgorithm) AddStrategy(name string, strategy strategy.Strategy) {
+	t.strategies[name] = strategy
+	t.strategyOrder = append(t.strategyOrder, name)
 }
 
 // Calculates data, signals, strategies, and executes trades.

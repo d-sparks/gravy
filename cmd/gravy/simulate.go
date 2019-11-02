@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"log"
+	"os"
 	"strconv"
 
 	"github.com/d-sparks/gravy/algorithm"
@@ -22,12 +22,14 @@ var simulateCmd = &cobra.Command{
 var windows string
 var symbols string
 var output string
+var skip int
 
 func init() {
 	rootCmd.AddCommand(simulateCmd)
 	simulateCmd.Flags().StringVarP(&windows, "windows", "w", "./data/kaggle/historical_as_windows.json", "Kaggledata")
 	simulateCmd.Flags().StringVarP(&symbols, "symbols", "s", "./data/kaggle/historical_stocks.csv", "Stock symbols")
 	simulateCmd.Flags().StringVarP(&output, "output", "o", "./results", "Results output")
+	simulateCmd.Flags().IntVarP(&skip, "skip", "S", 3650, "Rows to skip")
 }
 
 func simulateFn(cmd *cobra.Command, args []string) {
@@ -38,12 +40,12 @@ func simulateFn(cmd *cobra.Command, args []string) {
 // Default stores, typically in memory stores.
 func GetDataStores(dailywindowFilename string) map[string]db.Store {
 	stores := map[string]db.Store{}
-	stores[dailywindow.Name] = dailywindow.NewInMemoryStore(dailywindowFilename)
+	stores[dailywindow.Name] = dailywindow.NewInMemoryStoreFromFile(dailywindowFilename)
 	return stores
 }
 
 // Writes a CSV header.
-func WriteCSVHeader(headers []string, out *bufio.Writer) {
+func WriteCSVHeader(headers []string, out *os.File) {
 	out.WriteString("id")
 	for _, header := range headers {
 		out.WriteString("," + header)
@@ -52,7 +54,7 @@ func WriteCSVHeader(headers []string, out *bufio.Writer) {
 }
 
 // Writes a CSV line from a key order and kv. Includes an integer ID line.
-func WriteCSVLine(id int, order []string, kv map[string]string, out *bufio.Writer) {
+func WriteCSVLine(id int, order []string, kv map[string]string, out *os.File) {
 	out.WriteString(strconv.Itoa(id))
 	for _, header := range order {
 		out.WriteString("," + kv[header])
@@ -76,13 +78,13 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 	algorithm := algorithm.NewTradingAlgorithm(stores, exchange)
 
 	// Create output file.
-	out := gravyutil.FileWriterOrDie(output)
+	out := gravyutil.FileOrDie(output)
+	defer out.Close()
 
 	// Iterate over dates and simulate trading, export CSV.
 	WriteCSVHeader(algorithm.Headers(), out)
-	skipUntilIndex := 3650
 	hideAfterIndex := len(dates) / 2
-	for i := skipUntilIndex; i < len(dates); i++ {
+	for i := skip; i < len(dates); i++ {
 		algorithm.Trade(dates[i])
 		hide := i > hideAfterIndex
 		WriteCSVLine(i, algorithm.Headers(), algorithm.Debug(hide), out)
