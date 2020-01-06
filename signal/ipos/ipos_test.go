@@ -6,32 +6,33 @@ import (
 
 	"github.com/Clever/go-utils/stringset"
 	"github.com/d-sparks/gravy/db"
-	"github.com/d-sparks/gravy/db/dailywindow"
-	"github.com/d-sparks/gravy/trading"
+	"github.com/d-sparks/gravy/db/dailyprices"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIPOs(t *testing.T) {
-	yesterdayTime, err := time.Parse("2006-01-02", "2019-11-01")
+	yesterdayTime, err := time.Parse("2006-01-02", "2004-08-18")
 	assert.NoError(t, err)
-	todayTime, err := time.Parse("2006-01-02", "2019-11-02")
+	todayTime, err := time.Parse("2006-01-02", "2004-08-19")
 	assert.NoError(t, err)
 
-	yesterday := trading.Window{Symbols: stringset.New("MSFT")}
-	today := trading.Window{Symbols: stringset.New("MSFT", "GOOGL")}
+	yesterday := db.Data{Tickers: stringset.New("MSFT")}
+	today := db.Data{Tickers: stringset.New("MSFT", "GOOGL")}
 
-	testStore := dailywindow.NewInMemoryStore()
+	testStore := dailyprices.NewInMemoryStore()
 	testStore.Set(yesterdayTime, &yesterday)
 	testStore.Set(todayTime, &today)
 
 	stores := map[string]db.Store{}
-	stores[dailywindow.Name] = testStore
+	stores[dailyprices.Name] = testStore
 
-	IPOsSignal := New()
+	ipos := NewIPOs()
 
-	yesterdayOutput := IPOsSignal.Compute(yesterdayTime, stores)
+	yesterdayOutput, err := ipos.Compute(yesterdayTime, stores)
+	assert.NoError(t, err)
 	assert.True(t, yesterdayOutput.StringSet.Equals(stringset.New("MSFT")))
 
-	todayOutput := IPOsSignal.Compute(todayTime, stores)
+	todayOutput, err := ipos.Compute(todayTime, stores)
+	assert.NoError(t, err)
 	assert.True(t, todayOutput.StringSet.Equals(stringset.New("GOOGL")))
 }
