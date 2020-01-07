@@ -17,7 +17,7 @@ type IPOs struct {
 	previousTickers stringset.StringSet
 }
 
-func NewIPOs() *signal.CachedSignal {
+func New() *signal.CachedSignal {
 	return signal.NewCachedSignal(
 		&IPOs{previousTickers: stringset.StringSet{}},
 		time.Hour*24*365, // one year

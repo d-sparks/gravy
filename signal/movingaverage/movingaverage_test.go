@@ -36,7 +36,7 @@ func TestMovingAverages(t *testing.T) {
 	stores := map[string]db.Store{}
 	stores[dailyprices.Name] = testStore
 
-	movingaverage := NewMovingAvareage(3)
+	movingaverage := New(3)
 
 	assert.Equal(t, "3day_movingaverage", movingaverage.Name())
 

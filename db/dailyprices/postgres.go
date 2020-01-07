@@ -20,7 +20,6 @@ func NewPostgresStore(dbURL string, table string) (*PostgresStore, error) {
 	// Connect to database.
 	log.Printf("Connecting to database `%s`", dbURL)
 	db, err := sql.Open("postgres", dbURL)
-	defer db.Close()
 	if err != nil {
 		return nil, fmt.Errorf("Error connecting to database.")
 	}
@@ -28,11 +27,18 @@ func NewPostgresStore(dbURL string, table string) (*PostgresStore, error) {
 	return &PostgresStore{db, table}, nil
 }
 
+func (s *PostgresStore) Close() {
+	s.db.Close()
+}
+
+// Get proces for a specific date.
 func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	// Query database.
 	rows, err := s.db.Query(
-		"SELECT ticker, open, close, adj_close, low, high, volume from $1 WHERE date = '$2'",
-		s.table,
+		fmt.Sprintf(
+			"SELECT ticker, open, close, adj_close, low, high, volume FROM %s WHERE date = '$2'",
+			s.table,
+		),
 		date.Format("2006-01-02"),
 	)
 	if err != nil {
@@ -61,4 +67,32 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	}
 
 	return &data, nil
+}
+
+// Distinct dates in the database.
+func (s *PostgresStore) AllDates() ([]time.Time, error) {
+	// Query for dates.
+	rows, err := s.db.Query(fmt.Sprintf("SELECT DISTINCT date FROM %s", s.table))
+	if err != nil {
+		return nil, fmt.Errorf("Error querying for distinct dates: `%s`", err.Error())
+	}
+
+	// Scan and parse dates into a slice.
+	dates := []time.Time{}
+	for rows.Next() {
+		var dateStr string
+		if err := rows.Scan(&dateStr); err != nil {
+			return nil, fmt.Errorf("Error scanning date `%s` from postgres: `%s`", dateStr, err.Error())
+		}
+		date, err := time.Parse("2006-01-02T15:04:05Z", dateStr)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse date `%s`: `%s`", dateStr, err.Error())
+		}
+		dates = append(dates, date)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("Error scanning rows for distinct dates: `%s`", rows.Err().Error())
+	}
+
+	return dates, nil
 }

@@ -19,7 +19,7 @@ type MovingAverage struct {
 	days         int
 }
 
-func NewMovingAvareage(days int) *signal.CachedSignal {
+func New(days int) *signal.CachedSignal {
 	return signal.NewCachedSignal(
 		&MovingAverage{
 			days:         days,

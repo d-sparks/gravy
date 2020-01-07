@@ -13,7 +13,6 @@ import (
 	"github.com/d-sparks/gravy/signal/unlistings"
 	"github.com/d-sparks/gravy/strategy"
 	"github.com/d-sparks/gravy/strategy/buyandhold"
-	"github.com/d-sparks/gravy/trading"
 )
 
 // A TradingAlgorithm orchestrates stores, signals, strategies, and conducts trades.
@@ -53,7 +52,7 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 	algorithm.AddSignal(unlistings.Name, unlistings.New())
 
 	// Initialize strategies.
-	algorithm.AddStrategy(buyandhold.Name(100), buyandhold.New(100))
+	algorithm.AddStrategy(buyandhold.Name, buyandhold.New())
 
 	// Order of algorithm headers. Use internal name (don't include algHeaders).
 	algorithm.algorithmHeaders = []string{"date"}
@@ -80,7 +79,7 @@ func (t *TradingAlgorithm) AddStrategy(name string, strategy strategy.Strategy) 
 }
 
 // Calculates data, signals, strategies, and executes trades.
-func (t *TradingAlgorithm) Trade(date time.Time) {
+func (t *TradingAlgorithm) Trade(date time.Time) error {
 	// Clear debug output.
 	t.debug = map[string]string{"date": date.Format("2006-01-02")}
 
@@ -88,17 +87,17 @@ func (t *TradingAlgorithm) Trade(date time.Time) {
 	// portfolio := t.exchange.CurrentPortfolio()
 
 	// Get outputs of individual strategies.
-	strategyOutputs := map[string]strategy.StrategyOutput{}
+	strategyOutputs := map[string]*strategy.StrategyOutput{}
 	for name, strategy := range t.strategies {
-		strategyOutputs[name] = strategy.Run(date, t.stores, t.signals)
+		strategyOutput, err := strategy.Run(date, t.stores, t.signals)
+		if err != nil {
+			return fmt.Errorf("Error evaluating strategy `%s`: `%s`", name, err.Error())
+		}
+		strategyOutputs[name] = strategyOutput
 	}
 
-	// Calculate orders
-	orders := []trading.Order{}
-	orderOutcomes := make([]trading.OrderOutcome, len(orders))
-	for i, order := range orders {
-		orderOutcomes[i] = t.exchange.SubmitOrder(order)
-	}
+	// TODO Calculate orders
+	return nil
 }
 
 // Format helpers for debug headers.

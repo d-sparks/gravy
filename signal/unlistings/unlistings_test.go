@@ -26,7 +26,7 @@ func TestUnlistings(t *testing.T) {
 	stores := map[string]db.Store{}
 	stores[dailyprices.Name] = testStore
 
-	unlistings := NewUnlistings()
+	unlistings := New()
 
 	yesterdayOutput, err := unlistings.Compute(yesterdayTime, stores)
 	assert.NoError(t, err)

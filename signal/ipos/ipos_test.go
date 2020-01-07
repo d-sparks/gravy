@@ -26,7 +26,7 @@ func TestIPOs(t *testing.T) {
 	stores := map[string]db.Store{}
 	stores[dailyprices.Name] = testStore
 
-	ipos := NewIPOs()
+	ipos := New()
 
 	yesterdayOutput, err := ipos.Compute(yesterdayTime, stores)
 	assert.NoError(t, err)
