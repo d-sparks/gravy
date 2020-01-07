@@ -16,3 +16,7 @@ CREATE TABLE dailyprices (
 	volume FLOAT(8) NOT NULL,
 	date DATE NOT NULL
 );
+
+CREATE TABLE tradingdates (
+	date DATE NOT NULL
+);

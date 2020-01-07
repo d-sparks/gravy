@@ -17,6 +17,7 @@ import (
 const (
 	pricesTable  = "dailyprices"
 	tickersTable = "tickers"
+	datesTable   = "tradingdates"
 )
 
 // Pipeline populates the tickers and prices databases from files (from kaggle data).
@@ -38,7 +39,7 @@ func Pipeline(pricesFilename, tickersFilename, dbURL string) error {
 
 	// Process prices.
 	log.Printf("Processing prices from file `%s` to table `%s`...\n", pricesFilename, pricesTable)
-	if err := pricesPipeline(pricesFilename, db, pricesTable); err != nil {
+	if err := pricesAndDatesPipeline(pricesFilename, db, pricesTable, datesTable); err != nil {
 		return fmt.Errorf("Error processing ticks: `%s`", err.Error())
 	}
 	log.Println("Done processing prices...")
@@ -86,9 +87,9 @@ func tickersPipeline(filename string, db *sql.DB, table string) error {
 	return tx.Commit()
 }
 
-// Populates the dailyprices table. This loads all the kaggle data into memory to group by date, inserting a row for
-// that date with a
-func pricesPipeline(filename string, db *sql.DB, table string) error {
+// Populates the dailyprices table. This loads all the kaggle data into memory to group by date and then interpolate
+// missing tickers prices. Also populates the dates table.
+func pricesAndDatesPipeline(filename string, db *sql.DB, pricesTable, datesTable string) error {
 	// Open file as a csv reader.
 	file, err := os.Open(filename)
 	if err != nil {
@@ -102,6 +103,7 @@ func pricesPipeline(filename string, db *sql.DB, table string) error {
 
 	// Group by date and ticker, storing open, close, adj_close, low, high, and volume as float64.
 	dates := sort.StringSlice{}
+	datesSet := stringset.New()
 	dateToTickerToCols := map[string]map[string][]float64{}
 	dateToTickers := map[string]stringset.StringSet{}
 	for row, err = reader.Read(); err == nil; row, err = reader.Read() {
@@ -127,6 +129,9 @@ func pricesPipeline(filename string, db *sql.DB, table string) error {
 				return fmt.Errorf("Error parsing row `%s`: `%s`", row, err.Error())
 			}
 		}
+
+		// Insert into dateset (distinct dates).
+		datesSet.Add(date)
 	}
 	if err != nil && err != io.EOF {
 		return fmt.Errorf("Error reading ticks file: `%s`", err.Error())
@@ -136,7 +141,7 @@ func pricesPipeline(filename string, db *sql.DB, table string) error {
 	dates.Sort()
 	InterpolateData(dates, dateToTickerToCols, dateToTickers)
 
-	// Put data into database.
+	// Put prices into database.
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("Error beginning transaction in prices db: `%s`", err.Error())
@@ -177,6 +182,17 @@ func pricesPipeline(filename string, db *sql.DB, table string) error {
 		}
 
 	}
+	log.Println("Total errors: ", errs)
+
+	// Put dates into database.
+	for date, _ := range datesSet {
+		_, err := db.Exec(fmt.Sprintf("INSERT INTO %s (date) VALUES ($1)", datesTable), date)
+		if err != nil {
+			errs++
+			continue
+		}
+	}
+
 	return tx.Commit()
 }
 
