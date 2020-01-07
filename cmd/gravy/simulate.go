@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/d-sparks/gravy/algorithm"
 	"github.com/d-sparks/gravy/db"
-	"github.com/d-sparks/gravy/db/dailywindow"
-	"github.com/d-sparks/gravy/gravyutil"
+	"github.com/d-sparks/gravy/db/dailyprices"
 	"github.com/d-sparks/gravy/mock"
 	"github.com/spf13/cobra"
 )
@@ -19,29 +20,45 @@ var simulateCmd = &cobra.Command{
 	Run:   simulateFn,
 }
 
-var windows string
-var symbols string
-var output string
-var skip int
+var (
+	dbURL       string
+	pricesTable string
+	begin       string
+	end         string
+	output      string
+)
 
 func init() {
 	rootCmd.AddCommand(simulateCmd)
-	simulateCmd.Flags().StringVarP(&windows, "windows", "w", "./data/kaggle/historical_as_windows.json", "Kaggledata")
-	simulateCmd.Flags().StringVarP(&symbols, "symbols", "s", "./data/kaggle/historical_stocks.csv", "Stock symbols")
-	simulateCmd.Flags().StringVarP(&output, "output", "o", "./results", "Results output")
-	simulateCmd.Flags().IntVarP(&skip, "skip", "S", 3650, "Rows to skip")
+	f := simulateCmd.Flags()
+	f.StringVarP(&dbURL, "dburl", "d", "postgres://localhost/gravy?sslmode=disable", "Location of Postgres gravydb")
+	f.StringVarP(&pricesTable, "pricestable", "t", "dailyprices", "Table with dailyprices")
+	f.StringVarP(&begin, "begin", "b", "1337-01-23", "Begin date.")
+	f.StringVarP(&end, "end", "e", "2337-01-23", "End date.")
+	f.StringVarP(&output, "output", "o", "./gravy.csv", "Output csv file.")
 }
 
 func simulateFn(cmd *cobra.Command, args []string) {
-	stores := GetDataStores(windows)
-	Simulate(stores, 1.0, output)
-}
+	// Connect to Postgres.
+	dailypricesStore, err := dailyprices.NewPostgresStore(dbURL, pricesTable)
+	if err != nil {
+		log.Fatalf("Couldn't create stores: `%s`", err.Error())
+	}
+	defer dailypricesStore.Close()
 
-// Default stores, typically in memory stores.
-func GetDataStores(dailywindowFilename string) map[string]db.Store {
+	// Build stores.
 	stores := map[string]db.Store{}
-	stores[dailywindow.Name] = dailywindow.NewInMemoryStoreFromFile(dailywindowFilename)
-	return stores
+	stores[dailyprices.Name] = dailypricesStore
+
+	// Get trading dates.
+	allDates, err := dailypricesStore.AllDates()
+	if err != nil {
+		log.Fatalf("Error getting trading dates: `%s`", err.Error())
+	}
+
+	if err = Simulate(allDates, stores, 1.0, output); err != nil {
+		log.Fatalf("Error during simulation: `%s`", err.Error())
+	}
 }
 
 // Writes a CSV header.
@@ -62,15 +79,8 @@ func WriteCSVLine(id int, order []string, kv map[string]string, out *os.File) {
 	out.WriteString("\n")
 }
 
-// Simulates over all dates from a dailwindow.InMemoryStore.
-func Simulate(stores map[string]db.Store, seed float64, output string) {
-	// Get dates to simulate.
-	dailywindow, ok := stores[dailywindow.Name].(*dailywindow.InMemoryStore)
-	if !ok {
-		log.Fatalf("Simulation failed, dailywindow store not an InMemoryStore")
-	}
-	dates := dailywindow.Dates()
-
+// Simulates over specified dates and runs the trading algorithm, directing debug header output to the given writer.
+func Simulate(allDates []time.Time, stores map[string]db.Store, seed float64, output string) error {
 	// Mock exchange.
 	exchange := mock.NewExchange(seed)
 
@@ -78,15 +88,26 @@ func Simulate(stores map[string]db.Store, seed float64, output string) {
 	algorithm := algorithm.NewTradingAlgorithm(stores, exchange)
 
 	// Create output file.
-	out := gravyutil.FileOrDie(output)
+	out, err := os.Create(output)
+	if err != nil {
+		return fmt.Errorf("Error opening output file: `%s`", err.Error())
+	}
 	defer out.Close()
 
 	// Iterate over dates and simulate trading, export CSV.
 	WriteCSVHeader(algorithm.Headers(), out)
-	hideAfterIndex := len(dates) / 2
-	for i := skip; i < len(dates); i++ {
-		algorithm.Trade(dates[i])
-		hide := i > hideAfterIndex
-		WriteCSVLine(i, algorithm.Headers(), algorithm.Debug(hide), out)
+	for i := 0; i < len(allDates); i++ {
+		dateStr := allDates[i].Format("2006-01-02")
+		if dateStr > end {
+			break
+		}
+		if dateStr < begin {
+			continue
+		}
+		if err := algorithm.Trade(allDates[i]); err != nil {
+			return fmt.Errorf("Error in trading algorithm: `%s`", err.Error())
+		}
+		WriteCSVLine(i, algorithm.Headers(), algorithm.Debug( /*hide=*/ false), out)
 	}
+	return nil
 }
