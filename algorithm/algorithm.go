@@ -13,6 +13,7 @@ import (
 	"github.com/d-sparks/gravy/signal/unlistings"
 	"github.com/d-sparks/gravy/strategy"
 	"github.com/d-sparks/gravy/strategy/buyandhold"
+	"github.com/d-sparks/gravy/strategy/uniform"
 )
 
 // A TradingAlgorithm orchestrates stores, signals, strategies, and conducts trades.
@@ -53,6 +54,7 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 
 	// Initialize strategies.
 	algorithm.AddStrategy(buyandhold.Name, buyandhold.New())
+	algorithm.AddStrategy(uniform.Name, uniform.New())
 
 	// Order of algorithm headers. Use internal name (don't include algHeaders).
 	algorithm.algorithmHeaders = []string{"date"}
