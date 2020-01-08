@@ -23,6 +23,7 @@ var simulateCmd = &cobra.Command{
 var (
 	dbURL       string
 	pricesTable string
+	datesTable  string
 	begin       string
 	end         string
 	output      string
@@ -31,8 +32,9 @@ var (
 func init() {
 	rootCmd.AddCommand(simulateCmd)
 	f := simulateCmd.Flags()
-	f.StringVarP(&dbURL, "dburl", "d", "postgres://localhost/gravy?sslmode=disable", "Location of Postgres gravydb")
+	f.StringVarP(&dbURL, "dburl", "u", "postgres://localhost/gravy?sslmode=disable", "Location of Postgres gravydb")
 	f.StringVarP(&pricesTable, "pricestable", "t", "dailyprices", "Table with dailyprices")
+	f.StringVarP(&datesTable, "dates", "d", "tradingdates", "Table with trading dates")
 	f.StringVarP(&begin, "begin", "b", "1337-01-23", "Begin date.")
 	f.StringVarP(&end, "end", "e", "2337-01-23", "End date.")
 	f.StringVarP(&output, "output", "o", "./gravy.csv", "Output csv file.")
@@ -40,7 +42,7 @@ func init() {
 
 func simulateFn(cmd *cobra.Command, args []string) {
 	// Connect to Postgres.
-	dailypricesStore, err := dailyprices.NewPostgresStore(dbURL, pricesTable)
+	dailypricesStore, err := dailyprices.NewPostgresStore(dbURL, pricesTable, datesTable)
 	if err != nil {
 		log.Fatalf("Couldn't create stores: `%s`", err.Error())
 	}

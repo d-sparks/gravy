@@ -12,11 +12,12 @@ import (
 
 // Serve daily prices from a postgres database.
 type PostgresStore struct {
-	db    *sql.DB
-	table string
+	db          *sql.DB
+	pricesTable string
+	datesTable  string
 }
 
-func NewPostgresStore(dbURL string, table string) (*PostgresStore, error) {
+func NewPostgresStore(dbURL string, pricesTable, datesTable string) (*PostgresStore, error) {
 	// Connect to database.
 	log.Printf("Connecting to database `%s`", dbURL)
 	db, err := sql.Open("postgres", dbURL)
@@ -24,7 +25,7 @@ func NewPostgresStore(dbURL string, table string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("Error connecting to database.")
 	}
 
-	return &PostgresStore{db, table}, nil
+	return &PostgresStore{db, pricesTable, datesTable}, nil
 }
 
 func (s *PostgresStore) Close() {
@@ -36,8 +37,8 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	// Query database.
 	rows, err := s.db.Query(
 		fmt.Sprintf(
-			"SELECT ticker, open, close, adj_close, low, high, volume FROM %s WHERE date = '$2'",
-			s.table,
+			"SELECT ticker, open, close, adj_close, low, high, volume FROM %s WHERE date = $1",
+			s.pricesTable,
 		),
 		date.Format("2006-01-02"),
 	)
@@ -46,11 +47,12 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	}
 
 	// Construct window.
-	data := db.Data{}
+	data := db.Data{TickersToPrices: map[string]db.Prices{}}
 	for rows.Next() {
 		var ticker string
+		// TODO(dansparks): Use a db.Prices here.
 		var open, cloze, adjClose, low, high, volume float64
-		if err = rows.Scan(&ticker, &open, &adjClose, &low, &high, &volume); err != nil {
+		if err = rows.Scan(&ticker, &open, &cloze, &adjClose, &low, &high, &volume); err != nil {
 			return nil, fmt.Errorf("Error while parsing row: `%s`", err.Error())
 		}
 		data.TickersToPrices[ticker] = db.Prices{
@@ -72,7 +74,7 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 // Distinct dates in the database.
 func (s *PostgresStore) AllDates() ([]time.Time, error) {
 	// Query for dates.
-	rows, err := s.db.Query(fmt.Sprintf("SELECT DISTINCT date FROM %s", s.table))
+	rows, err := s.db.Query(fmt.Sprintf("SELECT DISTINCT date FROM %s ORDER BY date", s.datesTable))
 	if err != nil {
 		return nil, fmt.Errorf("Error querying for distinct dates: `%s`", err.Error())
 	}
