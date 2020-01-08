@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/Clever/go-utils/stringset"
 	"github.com/d-sparks/gravy/db"
 	_ "github.com/lib/pq"
 )
@@ -47,7 +48,7 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	}
 
 	// Construct window.
-	data := db.Data{TickersToPrices: map[string]db.Prices{}}
+	data := db.Data{TickersToPrices: map[string]db.Prices{}, Tickers: stringset.New()}
 	for rows.Next() {
 		var ticker string
 		// TODO(dansparks): Use a db.Prices here.
@@ -63,6 +64,7 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 			High:     high,
 			Volume:   volume,
 		}
+		data.Tickers.Add(ticker)
 	}
 	if rows.Err() != nil {
 		return nil, fmt.Errorf("Error constructing response: `%s`", rows.Err().Error())

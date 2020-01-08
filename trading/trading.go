@@ -22,7 +22,7 @@ func NewAbstractPortfolio(seed float64) AbstractPortfolio {
 
 // Returns the capital distribution of this portfolio at the gven closing prices.
 func (a *AbstractPortfolio) ToCapitalDistributionOnClose(prices map[string]db.Prices) *CapitalDistribution {
-	cd := CapitalDistribution{}
+	cd := NewCapitalDistribution()
 	for ticker, shares := range a.Stocks {
 		cd.SetStock(ticker, shares*prices[ticker].Close)
 	}
@@ -35,10 +35,12 @@ type CapitalDistribution struct {
 	stocks  map[string]float64
 	cashUSD float64
 	total   float64
+
+	NonZeroStocks stringset.StringSet
 }
 
 func NewCapitalDistribution() CapitalDistribution {
-	return CapitalDistribution{stocks: map[string]float64{}, total: 0.0}
+	return CapitalDistribution{stocks: map[string]float64{}, total: 0.0, NonZeroStocks: stringset.New()}
 }
 
 func NewUniformCapitalDistribution(tickers stringset.StringSet) *CapitalDistribution {
@@ -60,6 +62,7 @@ func (a *CapitalDistribution) ensureDistribution() {
 	for ticker, value := range a.stocks {
 		a.stocks[ticker] = value / a.total
 	}
+	a.cashUSD /= a.total
 	a.total = 1.0
 }
 
@@ -68,6 +71,12 @@ func (a *CapitalDistribution) SetStock(ticker string, value float64) {
 	a.total -= a.stocks[ticker]
 	a.stocks[ticker] = value
 	a.total += value
+
+	if value == 0.0 {
+		a.NonZeroStocks.Remove(ticker)
+	} else {
+		a.NonZeroStocks.Add(ticker)
+	}
 }
 
 // Sets cash holding for a capital distribution.

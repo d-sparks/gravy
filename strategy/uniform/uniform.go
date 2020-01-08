@@ -45,6 +45,11 @@ func (b *Uniform) Run(
 		CapitalDistribution: trading.NewUniformCapitalDistribution(dailyPricesData.Tickers),
 	}
 
+	//fmt.Println("=============================")
+	//for ticker, _ := range strategyOutput.CapitalDistribution.NonZeroStocks {
+	//	fmt.Printf("%s:%f,", ticker, strategyOutput.CapitalDistribution.GetStock(ticker))
+	//}
+
 	return &strategyOutput, nil
 }
 

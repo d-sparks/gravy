@@ -2,11 +2,14 @@ package algorithm
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/Clever/go-utils/stringset"
 	"github.com/d-sparks/gravy"
 	"github.com/d-sparks/gravy/db"
+	"github.com/d-sparks/gravy/metric"
+	"github.com/d-sparks/gravy/metric/ndayperf"
 	"github.com/d-sparks/gravy/signal"
 	"github.com/d-sparks/gravy/signal/ipos"
 	"github.com/d-sparks/gravy/signal/movingaverage"
@@ -19,32 +22,40 @@ import (
 // A TradingAlgorithm orchestrates stores, signals, strategies, and conducts trades.
 type TradingAlgorithm struct {
 	// For executing strategies and making trades.
-	stores     map[string]db.Store
-	signals    map[string]signal.Signal
-	strategies map[string]strategy.Strategy
-	exchange   gravy.Exchange
+	stores             map[string]db.Store
+	signals            map[string]signal.Signal
+	strategies         map[string]strategy.Strategy
+	perStrategyMetrics map[string]metric.PerStrategyMetric
+	exchange           gravy.Exchange
 
 	// For debug.
-	signalOrder      []string
-	strategyOrder    []string
-	nonhiddenHeaders stringset.StringSet
-	headers          []string
-	algorithmHeaders []string
-	debug            map[string]string
+	signalOrder            []string
+	strategyOrder          []string
+	perStrategyMetricOrder []string
+	nonhiddenHeaders       stringset.StringSet
+	headers                []string
+	algorithmHeaders       []string
+	debug                  map[string]string
+
+	// Temporary. Store the successive product of the daily performance of each strategy.
+	cumulativeReturn map[string]float64
 }
 
 func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) TradingAlgorithm {
 	// Initialize all members.
 	algorithm := TradingAlgorithm{
-		stores:     stores,
-		signals:    map[string]signal.Signal{},
-		strategies: map[string]strategy.Strategy{},
-		exchange:   exchange,
+		stores:             stores,
+		signals:            map[string]signal.Signal{},
+		strategies:         map[string]strategy.Strategy{},
+		perStrategyMetrics: map[string]metric.PerStrategyMetric{},
+		exchange:           exchange,
 
 		nonhiddenHeaders: stringset.New(),
 		signalOrder:      []string{},
 		strategyOrder:    []string{},
 		debug:            map[string]string{},
+
+		cumulativeReturn: map[string]float64{},
 	}
 
 	// Initialize signals.
@@ -55,6 +66,11 @@ func NewTradingAlgorithm(stores map[string]db.Store, exchange gravy.Exchange) Tr
 	// Initialize strategies.
 	algorithm.AddStrategy(buyandhold.Name, buyandhold.New())
 	algorithm.AddStrategy(uniform.Name, uniform.New())
+
+	// Initialize metrics (must do these after all strategies).
+	algorithm.AddPerStrategyMetric(ndayperf.Name(1), ndayperf.New(1))
+	algorithm.AddPerStrategyMetric(ndayperf.Name(7), ndayperf.New(7))
+	algorithm.AddPerStrategyMetric(ndayperf.Name(30), ndayperf.New(30))
 
 	// Order of algorithm headers. Use internal name (don't include algHeaders).
 	algorithm.algorithmHeaders = []string{"date"}
@@ -78,6 +94,13 @@ func (t *TradingAlgorithm) AddSignal(name string, signal signal.Signal) {
 func (t *TradingAlgorithm) AddStrategy(name string, strategy strategy.Strategy) {
 	t.strategies[name] = strategy
 	t.strategyOrder = append(t.strategyOrder, name)
+	t.cumulativeReturn[name] = 1.0
+}
+
+// These must be added after all strategies are added.
+func (t *TradingAlgorithm) AddPerStrategyMetric(name string, metric metric.PerStrategyMetric) {
+	t.perStrategyMetrics[name] = metric
+	t.perStrategyMetricOrder = append(t.perStrategyMetricOrder, name)
 }
 
 // Calculates data, signals, strategies, and executes trades.
@@ -91,11 +114,29 @@ func (t *TradingAlgorithm) Trade(date time.Time) error {
 	// Get outputs of individual strategies.
 	strategyOutputs := map[string]*strategy.StrategyOutput{}
 	for name, strategy := range t.strategies {
+		// Run strategy.
 		strategyOutput, err := strategy.Run(date, t.stores, t.signals)
 		if err != nil {
 			return fmt.Errorf("Error evaluating strategy `%s`: `%s`", name, err.Error())
 		}
 		strategyOutputs[name] = strategyOutput
+
+		// Calculate strategy metrics.
+		for metricName, metric := range t.perStrategyMetrics {
+			metricValue, err := metric.Value(date, t.stores, t.signals, strategyOutput)
+			if err != nil {
+				return fmt.Errorf("Error evaluating metric value `%s`: `%s`", metricName, err.Error())
+			}
+			t.debug[stratHeader(name, metricName)] = strconv.FormatFloat(metricValue, 'f', -1, 64)
+
+			// This is a bit hacky, find a better place to do this.
+			if metricName == ndayperf.Name(1) {
+				t.cumulativeReturn[name] *= metricValue
+				t.debug[stratHeader(name, "cumulative")] = strconv.FormatFloat(
+					t.cumulativeReturn[name], 'f', -1, 64,
+				)
+			}
+		}
 	}
 
 	// TODO Calculate orders
@@ -114,16 +155,26 @@ func algHeader(header string) string          { return fmt.Sprintf("alg.%s", hea
 func (t *TradingAlgorithm) Headers() []string {
 	if len(t.headers) == 0 {
 		t.headers = []string{}
+
+		// Signal output headers.
 		for _, signal := range t.signalOrder {
 			for _, header := range t.signals[signal].Headers() {
 				t.headers = append(t.headers, signalHeader(signal, header))
 			}
 		}
+
+		// Strategy output headers.
 		for _, strat := range t.strategyOrder {
 			for _, header := range t.strategies[strat].Headers() {
 				t.headers = append(t.headers, stratHeader(strat, header))
 			}
+			for _, metric := range t.perStrategyMetricOrder {
+				t.headers = append(t.headers, algHeader(stratHeader(strat, metric)))
+			}
+			t.headers = append(t.headers, algHeader(stratHeader(strat, "cumulative")))
 		}
+
+		// Algorithm level output headers.
 		for _, header := range t.algorithmHeaders {
 			t.headers = append(t.headers, algHeader(header))
 		}
@@ -158,7 +209,7 @@ func (t *TradingAlgorithm) Debug(hide bool) map[string]string {
 	// Get algorithm level debug.
 	for header, value := range t.debug {
 		algHeaderStr := algHeader(header)
-		if !hide || t.nonhiddenHeaders.Contains(algHeaderStr) {
+		if true || !hide || t.nonhiddenHeaders.Contains(algHeaderStr) {
 			debug[algHeaderStr] = value
 		}
 	}
