@@ -3,13 +3,23 @@ package db
 import (
 	"time"
 
-	"github.com/d-sparks/gravy/trading"
+	"github.com/Clever/go-utils/stringset"
 )
 
 type Data struct {
-	Window trading.Window
+	TickersToPrices map[string]Prices
+	Tickers         stringset.StringSet
 }
 
 type Store interface {
-	Get(date time.Time) Data
+	Get(date time.Time) (*Data, error)
+}
+
+type Prices struct {
+	Open     float64
+	Close    float64
+	AdjClose float64
+	Low      float64
+	High     float64
+	Volume   float64
 }

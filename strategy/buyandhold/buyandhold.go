@@ -2,89 +2,71 @@ package buyandhold
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/d-sparks/gravy/db"
-	"github.com/d-sparks/gravy/db/dailywindow"
+	"github.com/d-sparks/gravy/db/dailyprices"
 	"github.com/d-sparks/gravy/signal"
+	"github.com/d-sparks/gravy/signal/ipos"
 	"github.com/d-sparks/gravy/signal/unlistings"
 	"github.com/d-sparks/gravy/strategy"
 	"github.com/d-sparks/gravy/trading"
 )
 
-func Name(period int) string {
-	return fmt.Sprintf("buyandhold%ddays", period)
-}
+const Name = "buyandhold"
 
-// BuyAndHold strategy. Invest equally in all securities. Rebalance every N days.
+// BuyAndHold strategy. Invest equally in all securities. When there is an IPO or unlisting.
 type BuyAndHold struct {
-	distribution trading.CapitalDistribution
-	debug        map[string]string
-	period       int
-	days         int
-
-	// Cyclic buffer
-	perf       []float64
-	periodPerf float64
-	wins       int
-	losses     int
+	abstractPortfolio *trading.AbstractPortfolio
+	debug             map[string]string
 }
 
-func New(period int) *BuyAndHold {
-	return &BuyAndHold{
-		period:     period,
-		days:       0,
-		perf:       make([]float64, period),
-		periodPerf: 1.0,
-	}
+func New() *BuyAndHold {
+	return &BuyAndHold{}
 }
 
-// If this is the first time this strategy has run, invest equally in all securities.
+func (b *BuyAndHold) Name() string {
+	return Name
+}
+
+// Whenever there is an ipo or unlisting, invest equally in all securities. This is achieved by taking a uniform
+// capital distribution and turning it into an abstract portfolio worth $1.0 on the most recent closing prices. This
+// portfolio is memorized until the next ipo or unlisting. On any other day, we imagine having held that original
+// abstract portfolio and recommend a capital distribution that replicates that portfolio at the most recent prices.
 func (b *BuyAndHold) Run(
 	date time.Time,
 	stores map[string]db.Store,
 	signals map[string]signal.Signal,
-) strategy.StrategyOutput {
+) (*strategy.StrategyOutput, error) {
 	b.debug = map[string]string{}
 
-	// Every Nth day, rebalance to full diversification.
-	window := stores[dailywindow.Name].Get(date).Window
-	if b.days%b.period == 0 {
-		b.distribution = trading.NewBalancedCapitalDistribution(window.Open)
+	iposData, err := signals[ipos.Name].Compute(date, stores)
+	if err != nil {
+		return nil, fmt.Errorf("Error computing ipos in strategy `%s`: `%s`", Name, err.Error())
+	}
+	unlistingsData, err := signals[unlistings.Name].Compute(date, stores)
+	if err != nil {
+		return nil, fmt.Errorf("Error computing unlistings in strategy `%s`: `%s`", Name, err.Error())
+	}
+	dailyPricesData, err := stores[dailyprices.Name].Get(date)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting daily prices in strategy `%s`: `%s`", Name, err.Error())
 	}
 
-	// Remove allocation to unlisted stocks.
-	allUnlistings := signals[unlistings.Name].Compute(date, stores).StringSet
-	for symbol, _ := range allUnlistings {
-		b.distribution.SetStock(symbol, 0.0)
+	if b.abstractPortfolio == nil || len(iposData.StringSet) > 0 || len(unlistingsData.StringSet) > 0 {
+		uniform := trading.NewUniformCapitalDistribution(dailyPricesData.Tickers)
+		b.abstractPortfolio = uniform.ToAbstractPortfolioOnClose(dailyPricesData.TickersToPrices, 1.0)
 	}
 
-	// Track performance.
-	perf := b.distribution.RelativeWindowPerformance(window)
-	if b.days >= b.period {
-		b.periodPerf /= (1.0 + b.perf[b.days%b.period])
+	strategyOutput := strategy.StrategyOutput{
+		CapitalDistribution: b.abstractPortfolio.ToCapitalDistributionOnClose(dailyPricesData.TickersToPrices),
 	}
-	b.periodPerf *= (1.0 + perf)
-	b.perf[b.days%b.period] = perf
-	if perf > 0.0 {
-		b.wins++
-	} else if perf < 0.0 {
-		b.losses++
-	}
-
-	// Debug.
-	b.debug["periodperf"] = strconv.FormatFloat(b.periodPerf, 'G', -1, 64)
-	b.debug["perf"] = strconv.FormatFloat(perf, 'G', -1, 64)
-	b.debug["W/L"] = strconv.FormatFloat(float64(b.wins)/float64(b.losses), 'G', -1, 64)
-
-	b.days++
-	return strategy.StrategyOutput{CapitalDistribution: &b.distribution}
+	return &strategyOutput, nil
 }
 
 // No data to output
 func (b *BuyAndHold) Headers() []string {
-	return []string{"perf", "periodperf", "W/L"}
+	return []string{}
 }
 
 // Return last run's debug.

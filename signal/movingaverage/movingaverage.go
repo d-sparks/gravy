@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/d-sparks/gravy/db"
-	"github.com/d-sparks/gravy/db/dailywindow"
+	"github.com/d-sparks/gravy/db/dailyprices"
 	"github.com/d-sparks/gravy/signal"
+	"github.com/montanaflynn/stats"
 )
 
 func Name(days int) string { return fmt.Sprintf("%dday_movingaverage", days) }
@@ -29,30 +30,40 @@ func New(days int) *signal.CachedSignal {
 	)
 }
 
-func (m *MovingAverage) Compute(date time.Time, stores map[string]db.Store) signal.SignalOutput {
-	// Get newest window
-	window := stores[dailywindow.Name].Get(date).Window
+func (m *MovingAverage) Name() string {
+	return Name(m.days)
+}
 
-	// Stop tracking unlisted symbols.
-	for symbol, _ := range m.observations {
-		if _, ok := window.Close[symbol]; !ok {
-			delete(m.observations, symbol)
-			delete(m.oldestIx, symbol)
+func (m *MovingAverage) Compute(date time.Time, stores map[string]db.Store) (*signal.SignalOutput, error) {
+	data, err := stores[dailyprices.Name].Get(date)
+	if err != nil {
+		return nil, fmt.Errorf("Error reading dailyprices in `%s`: `%s`", Name(m.days), err.Error())
+	}
+
+	// Stop tracking unlisted tickers.
+	for ticker, _ := range m.observations {
+		if !data.Tickers.Contains(ticker) {
+			delete(m.observations, ticker)
+			delete(m.oldestIx, ticker)
 		}
 	}
 
 	// Record new observations.
-	for symbol, price := range window.Close {
-		if len(m.observations[symbol]) < m.days {
-			m.observations[symbol] = append(m.observations[symbol], price)
+	for ticker, prices := range data.TickersToPrices {
+		if len(m.observations[ticker]) < m.days {
+			m.observations[ticker] = append(m.observations[ticker], prices.Close)
 			continue
 		}
-		m.observations[symbol][m.oldestIx[symbol]] = price
-		m.oldestIx[symbol] = (m.oldestIx[symbol] + 1) % m.days
+		m.observations[ticker][m.oldestIx[ticker]] = prices.Close
+		m.oldestIx[ticker] = (m.oldestIx[ticker] + 1) % m.days
 	}
 
-	// Update observations...
-	return signal.SignalOutput{}
+	// Update observations.
+	output := signal.SignalOutput{KV: map[string]float64{}}
+	for ticker, prices := range m.observations {
+		output.KV[ticker], _ = stats.Mean(prices)
+	}
+	return &output, nil
 }
 
 func (m *MovingAverage) Headers() []string {

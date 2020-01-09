@@ -6,32 +6,33 @@ import (
 
 	"github.com/Clever/go-utils/stringset"
 	"github.com/d-sparks/gravy/db"
-	"github.com/d-sparks/gravy/db/dailywindow"
-	"github.com/d-sparks/gravy/trading"
+	"github.com/d-sparks/gravy/db/dailyprices"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUnlistings(t *testing.T) {
-	yesterdayTime, err := time.Parse("2006-01-02", "2019-11-01")
+	yesterdayTime, err := time.Parse("2006-01-02", "2013-10-28")
 	assert.NoError(t, err)
-	todayTime, err := time.Parse("2006-01-02", "2019-11-02")
+	todayTime, err := time.Parse("2006-01-02", "2013-10-29")
 	assert.NoError(t, err)
 
-	yesterday := trading.Window{Symbols: stringset.New("GOOGL", "MSFT")}
-	today := trading.Window{Symbols: stringset.New("GOOGL")}
+	yesterday := db.Data{Tickers: stringset.New("GOOGL", "DELL")}
+	today := db.Data{Tickers: stringset.New("GOOGL")}
 
-	testStore := dailywindow.NewInMemoryStore()
+	testStore := dailyprices.NewInMemoryStore()
 	testStore.Set(yesterdayTime, &yesterday)
 	testStore.Set(todayTime, &today)
 
 	stores := map[string]db.Store{}
-	stores[dailywindow.Name] = testStore
+	stores[dailyprices.Name] = testStore
 
-	IPOsSignal := New()
+	unlistings := New()
 
-	yesterdayOutput := IPOsSignal.Compute(yesterdayTime, stores)
-	assert.True(t, yesterdayOutput.StringSet.Equals(stringset.New()))
+	yesterdayOutput, err := unlistings.Compute(yesterdayTime, stores)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(yesterdayOutput.StringSet))
 
-	todayOutput := IPOsSignal.Compute(todayTime, stores)
-	assert.True(t, todayOutput.StringSet.Equals(stringset.New("MSFT")))
+	todayOutput, err := unlistings.Compute(todayTime, stores)
+	assert.NoError(t, err)
+	assert.True(t, todayOutput.StringSet.Equals(stringset.New("DELL")))
 }

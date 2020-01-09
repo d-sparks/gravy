@@ -16,12 +16,15 @@ type StrategyOutput struct {
 // Strategies are used in TradingAlgorithm. They represent abstract strategies but don't have the
 // ability to figure out which trades to make.
 type Strategy interface {
+	// Name of the strategy.
+	Name() string
+
 	// Run the strategy.
 	Run(
 		date time.Time,
 		stores map[string]db.Store,
 		signals map[string]signal.Signal,
-	) StrategyOutput
+	) (*StrategyOutput, error)
 
 	// Get debug output for previous Run.
 	Headers() []string
