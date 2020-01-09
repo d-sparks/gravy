@@ -145,7 +145,7 @@ func (t *TradingAlgorithm) Trade(date time.Time) error {
 
 // Format helpers for debug headers.
 func signalHeader(signal, header string) string {
-	return fmt.Sprintf("signalstrat.%s.%s", signal, header)
+	return fmt.Sprintf("signal.%s.%s", signal, header)
 }
 func stratHeader(strat, header string) string { return fmt.Sprintf("strat.%s.%s", strat, header) }
 func algHeader(header string) string          { return fmt.Sprintf("alg.%s", header) }
