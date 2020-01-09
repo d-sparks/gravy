@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/d-sparks/gravy/kaggle"
 	"github.com/spf13/cobra"
 )
@@ -11,16 +13,23 @@ var kaggleCmd = &cobra.Command{
 	Run:   kaggleFn,
 }
 
-var kaggleInput string
-var kaggleOutput string
+var (
+	prices  string
+	tickers string
+	dbURL   string
+)
 
 func init() {
 	pipelinesCmd.AddCommand(kaggleCmd)
 
-	kaggleCmd.Flags().StringVarP(&kaggleInput, "input", "s", "./data/kaggle/historical_stock_prices.csv", "Kaggle data input")
-	kaggleCmd.Flags().StringVarP(&kaggleOutput, "output", "o", "./data/kaggle/historical_as_windows.json", "Normalized output")
+	f := kaggleCmd.Flags()
+	f.StringVarP(&prices, "prices", "p", "./kaggle/data/historical_stock_prices.csv", "Stock prices CSV (Kaggle).")
+	f.StringVarP(&tickers, "tickers", "t", "./kaggle/data/historical_stocks.csv", "Stock symbols CSV (Kaggle)")
+	f.StringVarP(&dbURL, "db", "d", "postgres://localhost/gravy?sslmode=disable", "Postgres DB connection string")
 }
 
 func kaggleFn(cmd *cobra.Command, args []string) {
-	kaggle.Pipeline(kaggleInput, kaggleOutput)
+	if err := kaggle.Pipeline(prices, tickers, dbURL); err != nil {
+		log.Fatalf(err.Error())
+	}
 }
