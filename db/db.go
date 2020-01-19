@@ -12,7 +12,9 @@ type Data struct {
 }
 
 type Store interface {
+	ValidDate(date time.Time) (bool, error)
 	Get(date time.Time) (*Data, error)
+	NextDate(date time.Time) (*time.Time, error)
 }
 
 type Prices struct {

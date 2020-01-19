@@ -8,29 +8,56 @@ import (
 
 	"github.com/Clever/go-utils/stringset"
 	"github.com/d-sparks/gravy/db"
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // postgres for sql
 )
 
-// Serve daily prices from a postgres database.
+// PostgresStore serves daily prices from a postgres database.
 type PostgresStore struct {
 	db          *sql.DB
 	pricesTable string
 	datesTable  string
 }
 
+// NewPostgresStore creates a new postgres store pointing at a given db and tables.
 func NewPostgresStore(dbURL string, pricesTable, datesTable string) (*PostgresStore, error) {
 	// Connect to database.
 	log.Printf("Connecting to database `%s`", dbURL)
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		return nil, fmt.Errorf("Error connecting to database.")
+		return nil, fmt.Errorf("Error connecting to database: `%s`", err.Error())
 	}
 
 	return &PostgresStore{db, pricesTable, datesTable}, nil
 }
 
+// Close the database connection.
 func (s *PostgresStore) Close() {
 	s.db.Close()
+}
+
+// ValidDate returns whether the date is a trading date, and is part of the db interface.
+func (s *PostgresStore) ValidDate(date time.Time) (bool, error) {
+	rows, err := s.db.Query("SELECT date WHERE date = $1", date.Format("2006-01-02"))
+	if err != nil {
+		return false, fmt.Errorf("Error reading from db: `%s`", err.Error())
+	}
+	return rows.Next(), nil
+}
+
+// NextDate returns the next trading date after the given date, assuming given date is valid.
+func (s *PostgresStore) NextDate(date time.Time) (*time.Time, error) {
+	rows, err := s.db.Query("SELECT date WHERE date > $1 ORDER BY date DESC limit 1", date.Format("2006-01-02"))
+	if err != nil {
+		return nil, fmt.Errorf("Error reading from db: `%s`", err.Error())
+	}
+	if !rows.Next() {
+		return nil, fmt.Errorf("No dates found")
+	}
+	var nextDate time.Time
+	if err = rows.Scan(&nextDate); err != nil {
+		return nil, fmt.Errorf("Error parsing nextDate: `%s`", err.Error())
+	}
+	return &nextDate, nil
 }
 
 // Get proces for a specific date.
@@ -73,7 +100,9 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	return &data, nil
 }
 
-// Distinct dates in the database.
+// NextDate is for the db interface, returns the next valid date.
+
+// AllDates returns distinct dates in the database.
 func (s *PostgresStore) AllDates() ([]time.Time, error) {
 	// Query for dates.
 	rows, err := s.db.Query(fmt.Sprintf("SELECT DISTINCT date FROM %s ORDER BY date", s.datesTable))

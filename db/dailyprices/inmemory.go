@@ -7,24 +7,25 @@ import (
 	"github.com/d-sparks/gravy/db"
 )
 
-// Serves prices from local memory.
+// InMemoryStore serves prices from local memory.
 type InMemoryStore struct {
 	data  map[time.Time]*db.Data
 	dates []time.Time
 }
 
+// NewInMemoryStore returns a new InMemoryStore with empty data.
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{data: map[time.Time]*db.Data{}}
 }
 
-// Not yet implemented.
+// NewInMemoryStoreFromFile is not yet implemented.
 func NewInMemoryStoreFromFile(filename string) *InMemoryStore {
 	store := InMemoryStore{data: map[time.Time]*db.Data{}}
 	// TODO(dansparks): This will essentially be kaggle/pipeline.go.
 	return &store
 }
 
-// Return prices for the given date.
+// Get returns prices for the given date.
 func (i *InMemoryStore) Get(date time.Time) (*db.Data, error) {
 	data, ok := i.data[date]
 	if !ok {
@@ -33,7 +34,7 @@ func (i *InMemoryStore) Get(date time.Time) (*db.Data, error) {
 	return data, nil
 }
 
-// Add the date to the store. Dates should be added in sequential order.
+// Set adds the date to the store. Dates should be added in sequential order.
 func (i *InMemoryStore) Set(date time.Time, data *db.Data) {
 	i.data[date] = data
 	i.dates = append(i.dates, date)
