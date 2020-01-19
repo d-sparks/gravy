@@ -37,19 +37,27 @@ func (s *PostgresStore) Close() {
 
 // ValidDate returns whether the date is a trading date, and is part of the db interface.
 func (s *PostgresStore) ValidDate(date time.Time) (bool, error) {
-	rows, err := s.db.Query("SELECT date WHERE date = $1", date.Format("2006-01-02"))
+	rows, err := s.db.Query(
+		fmt.Sprintf("SELECT date FROM %s WHERE date = $1", s.datesTable),
+		date.Format("2006-01-02"),
+	)
 	if err != nil {
 		return false, fmt.Errorf("Error reading from db: `%s`", err.Error())
 	}
+	defer rows.Close()
 	return rows.Next(), nil
 }
 
 // NextDate returns the next trading date after the given date, assuming given date is valid.
 func (s *PostgresStore) NextDate(date time.Time) (*time.Time, error) {
-	rows, err := s.db.Query("SELECT date WHERE date > $1 ORDER BY date DESC limit 1", date.Format("2006-01-02"))
+	rows, err := s.db.Query(
+		fmt.Sprintf("SELECT date FROM %s WHERE date > $1", s.datesTable),
+		date.Format("2006-01-02"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading from db: `%s`", err.Error())
 	}
+	defer rows.Close()
 	if !rows.Next() {
 		return nil, fmt.Errorf("No dates found")
 	}
@@ -73,6 +81,7 @@ func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error reading from db: `%s`", err.Error())
 	}
+	defer rows.Close()
 
 	// Construct window.
 	data := db.Data{TickersToPrices: map[string]db.Prices{}, Tickers: stringset.New()}
@@ -109,6 +118,7 @@ func (s *PostgresStore) AllDates() ([]time.Time, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error querying for distinct dates: `%s`", err.Error())
 	}
+	defer rows.Close()
 
 	// Scan and parse dates into a slice.
 	dates := []time.Time{}
