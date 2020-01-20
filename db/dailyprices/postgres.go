@@ -51,7 +51,7 @@ func (s *PostgresStore) ValidDate(date time.Time) (bool, error) {
 // NextDate returns the next trading date after the given date, assuming given date is valid.
 func (s *PostgresStore) NextDate(date time.Time) (*time.Time, error) {
 	rows, err := s.db.Query(
-		fmt.Sprintf("SELECT date FROM %s WHERE date > $1", s.datesTable),
+		fmt.Sprintf("SELECT date FROM %s WHERE date > $1 ORDER BY date LIMIT 1", s.datesTable),
 		date.Format("2006-01-02"),
 	)
 	if err != nil {
@@ -61,8 +61,12 @@ func (s *PostgresStore) NextDate(date time.Time) (*time.Time, error) {
 	if !rows.Next() {
 		return nil, fmt.Errorf("No dates found")
 	}
-	var nextDate time.Time
-	if err = rows.Scan(&nextDate); err != nil {
+	var nextDateStr string
+	if err = rows.Scan(&nextDateStr); err != nil {
+		return nil, fmt.Errorf("Error reading nextDate: `%s`", err.Error())
+	}
+	nextDate, err := time.Parse("2006-01-02T15:04:05Z", nextDateStr)
+	if err != nil {
 		return nil, fmt.Errorf("Error parsing nextDate: `%s`", err.Error())
 	}
 	return &nextDate, nil
