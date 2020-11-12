@@ -72,7 +72,7 @@ func (s *PostgresStore) NextDate(date time.Time) (*time.Time, error) {
 	return &nextDate, nil
 }
 
-// Get proces for a specific date.
+// Get prices for a specific date.
 func (s *PostgresStore) Get(date time.Time) (*db.Data, error) {
 	// Query database.
 	rows, err := s.db.Query(

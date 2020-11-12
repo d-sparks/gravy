@@ -72,12 +72,12 @@ func (n *NDayPerf) Value(
 
 		endPrices, ok := endPricesData.TickersToPrices[ticker]
 		if ok {
-			overallReturn += cd.GetStock(ticker) * (endPrices.Close / tomorrowPrices.Open)
+			overallReturn += cd.GetStock(ticker) * (5000.0 * endPrices.Close / tomorrowPrices.Open)
 		} else {
 			// If there is no closing price assume a neutral return. (This might be a bad assumption.)
-			overallReturn += cd.GetStock(ticker) // * 1.0
+			overallReturn += cd.GetStock(ticker) * 5000.0
 		}
 	}
 
-	return overallReturn, nil
+	return overallReturn / 5000.0, nil
 }
