@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option go_package = "dailyprices_pb";
+
+import "google/protobuf/timestamp.proto";
+
+package dailyprices;
+
+service Data {
+  rpc Get(Request) returns (DailyPrices) {}
+}
+
+message Request {
+  google.protobuf.Timestamp timestamp = 1;
+  int32 version = 2;
+}
+
+message DailyPrices {
+  message StockPrices {
+    string ticker = 1;
+    double open = 2;
+    double close = 3;
+    double adj_close = 4;
+    double low = 5;
+    double high = 6;
+    double volume = 7;
+  }
+
+  repeated StockPrices stock_prices = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  int32 version = 3;
+}
