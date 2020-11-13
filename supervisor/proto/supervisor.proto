@@ -1,13 +1,19 @@
 syntax = "proto3";
 
-option go_package = "supervisor_pb";
+option go_package = "github.com/d-sparks/gravy/supervisor/proto;supervisor_pb";
+
+import "google/protobuf/timestamp.proto";
 
 package supervisor;
 
 service Supervisor {
   rpc PlaceOrder(Order) returns (OrderConfirmation) {}
 
-  rpc GetPortfolio(StrategyId) returns (Portfolio) {}
+  rpc GetPortfolio(AlgorithmId) returns (Portfolio) {}
+
+  rpc SynchronousDailySim(SynchronousDailySimInput) returns (SynchronousDailySimOutput) {}
+
+  rpc Abort(AbortInput) returns (AbortOutput) {}
 }
 
 message Order {
@@ -31,6 +37,21 @@ message Portfolio {
   double usd = 2;
 }
 
-message StrategyId {
-  string strategy_id = 1;
+message AlgorithmId {
+  string algorithm_id = 1;
+}
+
+message SynchronousDailySimInput {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  repeated AlgorithmId algorithms = 3;
+}
+
+message SynchronousDailySimOutput {
+}
+
+message AbortInput {
+}
+
+message AbortOutput {
 }

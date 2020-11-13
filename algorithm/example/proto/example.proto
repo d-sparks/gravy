@@ -1,19 +1,11 @@
 syntax = "proto3";
 
-option go_package = "example_pb";
+option go_package = "github.com/d-sparks/gravy/algorithm/example/proto;example_pb";
 
-import "google/protobuf/timestamp.proto";
+import "algorithm/proto/algorithm_io.proto";
 
 package example;
 
 service Example {
-  rpc Execute(Input) returns (Output) {}
-}
-
-message Input {
-  google.protobuf.Timestamp timestamp = 2;
-  int32 version = 3;
-}
-
-message Output {
+  rpc Execute(algorithmio.Input) returns (algorithmio.Output) {}
 }

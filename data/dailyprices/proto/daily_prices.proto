@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "dailyprices_pb";
+option go_package = "data/dailyprices/proto;dailyprices_pb";
 
 import "google/protobuf/timestamp.proto";
 

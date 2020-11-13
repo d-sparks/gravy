@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "github.com/d-sparks/gravy/algorithm/proto;algorithmio_pb";
+
+import "google/protobuf/timestamp.proto";
+
+package algorithmio;
+
+message Input {
+  google.protobuf.Timestamp timestamp = 1;
+  int32 version = 2;
+}
+
+message Output {
+}
