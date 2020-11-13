@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "example_pb";
+
+import "google/protobuf/timestamp.proto";
+
+package example;
+
+service Example {
+  rpc Execute(Input) returns (Output) {}
+}
+
+message Input {
+  google.protobuf.Timestamp timestamp = 2;
+  int32 version = 3;
+}
+
+message Output {
+}

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option go_package = "supervisor_pb";
+
+package supervisor;
+
+service Supervisor {
+  rpc PlaceOrder(Order) returns (OrderConfirmation) {}
+
+  rpc GetPortfolio(StrategyId) returns (Portfolio) {}
+}
+
+message Order {
+  string requester_id = 1;
+  string ticker = 2;
+  int32 volume = 3;
+  double limit = 4;
+  double stop = 5;
+}
+
+message OrderConfirmation {
+}
+
+message Portfolio {
+  message Stock {
+    string ticker = 1;
+    double volume = 2;
+  }
+
+  repeated Stock stocks = 1;
+  double usd = 2;
+}
+
+message StrategyId {
+  string strategy_id = 1;
+}

@@ -36,7 +36,7 @@ type DailyPricesServer struct {
 
 	// Cache
 	mu    sync.Mutex
-	cache map[int]map[time.Time]dailyprices_pb.DailyPrices
+	cache map[int32]map[time.Time]*dailyprices_pb.DailyPrices
 }
 
 // NewDailyPricesServer creates an empty daily prices server.
@@ -50,6 +50,8 @@ func NewDailyPricesServer(postgresURL string, dailyPricesTable string) (*DailyPr
 	var dailyPricesServer DailyPricesServer
 	dailyPricesServer.db = db
 	dailyPricesServer.tableName = dailyPricesTable
+	dailyPricesServer.cache = map[int32]map[time.Time]*dailyprices_pb.DailyPrices{}
+
 	return &dailyPricesServer, nil
 }
 
@@ -61,10 +63,19 @@ func (s *DailyPricesServer) Close() {
 // Get implements the get endpoint for dailyprices_pb.DataServer.
 func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailyprices_pb.DailyPrices, error) {
 	// Parse timestamp to Golang native time.
-	time, err := ptypes.Timestamp(req.GetTimestamp())
+	tickTime, err := ptypes.Timestamp(req.GetTimestamp())
 	if err != nil {
 		return nil, fmt.Errorf("Invalid timestamp: %s", err.Error())
 	}
+
+	// Check cache.
+	s.mu.Lock()
+	if versionPrices, ok := s.cache[req.GetVersion()]; ok {
+		if cachedDailyPrices, ok := versionPrices[tickTime]; ok {
+			return cachedDailyPrices, nil
+		}
+	}
+	s.mu.Unlock()
 
 	// Query database.
 	rows, err := s.db.Query(
@@ -72,7 +83,7 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 			"SELECT ticker, open, close, adj_close, low, high, volume FROM %s WHERE date = $1",
 			s.tableName,
 		),
-		time.Format("2006-01-02"),
+		tickTime.Format("2006-01-02"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading from db: `%s`", err.Error())
@@ -100,9 +111,15 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 		return nil, fmt.Errorf("Error constructing response: `%s`", rows.Err().Error())
 	}
 
-	// Stamp and return.
+	// Stamp, cache, and return.
 	dailyPrices.Timestamp = req.GetTimestamp()
 	dailyPrices.Version = req.GetVersion()
+	s.mu.Lock()
+	if _, ok := s.cache[dailyPrices.GetVersion()]; !ok {
+		s.cache[dailyPrices.GetVersion()] = map[time.Time]*dailyprices_pb.DailyPrices{}
+	}
+	s.cache[dailyPrices.GetVersion()][tickTime] = &dailyPrices
+	s.mu.Unlock()
 	return &dailyPrices, nil
 }
 
