@@ -27,9 +27,7 @@ func parseTimeOrDie(timeString string) *timestamp_pb.Timestamp {
 
 func main() {
 	// Open registrar.
-	log.Println("qwaer")
 	registrar, err := registrar.NewWithSupervisor()
-	log.Println("qwaer")
 	fatalIfErr(err)
 	defer registrar.Close()
 
@@ -37,6 +35,7 @@ func main() {
 	var req supervisor_pb.SynchronousDailySimInput
 	req.Start = parseTimeOrDie("2006-01-03")
 	req.End = parseTimeOrDie("2006-03-03")
+	req.OutputDir = "/tmp/foo"
 
 	// Send request.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

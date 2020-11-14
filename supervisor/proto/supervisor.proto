@@ -42,6 +42,7 @@ message SynchronousDailySimInput {
   google.protobuf.Timestamp start = 1;
   google.protobuf.Timestamp end = 2;
   repeated AlgorithmId algorithms = 3;
+  string output_dir = 4;
 }
 
 message SynchronousDailySimOutput {

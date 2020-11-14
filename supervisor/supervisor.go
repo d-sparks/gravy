@@ -1,14 +1,21 @@
 package supervisor
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"path"
+	"sort"
+	"strings"
 	"sync"
 
 	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
+	"github.com/d-sparks/gravy/gravy"
 	"github.com/d-sparks/gravy/registrar"
 	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
+	"github.com/golang/protobuf/ptypes"
 	timestamp_pb "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,6 +39,7 @@ const (
 type S struct {
 	supervisor_pb.UnimplementedSupervisorServer
 
+	// registrar for accessing algorithms and data.
 	registrar *registrar.R
 
 	// This is the source of truth. If trading live, S is in charge of keeping these up to date with the broker or
@@ -46,6 +54,11 @@ type S struct {
 
 	// Current trading mode.
 	tradingMode TradingMode
+
+	// Logging.
+	algorithmsOut      map[string]*bufio.Writer
+	algorithmsOutOrder []string
+	out                *bufio.Writer
 
 	// Locks and unlocks when simulations or trading modes are in progress.
 	mu sync.Mutex
@@ -94,10 +107,50 @@ func (s *S) GetPortfolio(
 	return portfolio, nil
 }
 
-// HandleOrder attempts to handle order and returns true if the order is fulfilled. Does not yet support short selling.
-func (s *S) HandleOrder(order *supervisor_pb.Order, dailyPrices *dailyprices_pb.DailyPrices) bool {
+// initPortfolios makes each portfolio have no positions and an initial capital in USD.
+func (s *S) initPortfolios(capitalEach float64) {
+	s.portfolios = map[string]*supervisor_pb.Portfolio{}
+	for algorithmID := range s.registrar.Algorithms {
+		s.portfolios[algorithmID] = &supervisor_pb.Portfolio{}
+		s.portfolios[algorithmID].Stocks = map[string]float64{}
+		s.portfolios[algorithmID].Usd = capitalEach
+	}
+}
+
+// getTradingDatesInRange returns the trading dates in the given range.
+func (s *S) getTradingDatesInRange(
+	ctx context.Context, input *supervisor_pb.SynchronousDailySimInput,
+) (*dailyprices_pb.TradingDates, error) {
+	var simRange dailyprices_pb.Range
+	simRange.Lb = input.GetStart()
+	simRange.Ub = input.GetEnd()
+	return s.registrar.DailyPrices.TradingDatesInRange(ctx, &simRange)
+}
+
+// executeAllAlgorithms tells each algorithm to begin working.
+func (s *S) executeAllAlgorithms(ctx context.Context, algorithmDate *timestamp_pb.Timestamp) error {
+	var input algorithmio_pb.Input
+	input.Timestamp = algorithmDate
+	for _, algorithm := range s.registrar.Algorithms {
+		go algorithm.Execute(ctx, &input)
+	}
+	return nil
+}
+
+// logOrder logs an order to the algorithm's output file.
+func (s *S) logOrder(algorithmID string, filled bool, buySell string, volume float64, price float64, ticker string) {
+	if !filled {
+		buySell = "(FAILED ORDER) " + buySell
+	}
+	buySell += fmt.Sprintf(" %f units of %s at %f [value: %f]\n", volume, ticker, price, volume*price)
+	s.algorithmsOut[algorithmID].WriteString(buySell)
+}
+
+// handleOrder attempts to handle order and returns true if the order is fulfilled. Does not yet support short selling.
+func (s *S) handleOrder(order *supervisor_pb.Order, dailyPrices *dailyprices_pb.DailyPrices) bool {
 	// Check if the portfolio has enough of the stock to sell or enough USD to cover the limit price of the order.
-	portfolio := s.portfolios[order.GetAlgorithmId().GetAlgorithmId()]
+	algorithmID := order.GetAlgorithmId().GetAlgorithmId()
+	portfolio := s.portfolios[algorithmID]
 	ticker := order.GetTicker()
 	amountHeld, holding := portfolio.GetStocks()[ticker]
 	if order.GetVolume() < 0 && (!holding || amountHeld < order.GetVolume()) {
@@ -121,45 +174,18 @@ func (s *S) HandleOrder(order *supervisor_pb.Order, dailyPrices *dailyprices_pb.
 		// we know volume * price <= $USD as well.
 		portfolio.Usd -= order.GetVolume() * price
 		portfolio.Stocks[ticker] += order.GetVolume()
+		s.logOrder(algorithmID, true, "BUY", order.GetVolume(), price, ticker)
 		return true
 	} else if order.GetVolume() < 0 && price >= order.GetStop() {
 		// We checked already that we have enough stock to sell.
 		portfolio.Usd += order.GetVolume() * price
 		portfolio.Stocks[ticker] -= order.GetVolume()
+		s.logOrder(algorithmID, true, "SELL", order.GetVolume(), price, ticker)
+		return true
 	}
 
 	// TODO: Handle the case of non-expiring orders.
 	return false
-}
-
-// initPortfolios makes each portfolio have no positions and an initial capital in USD.
-func (s *S) initPortfolios(capitalEach float64) {
-	s.portfolios = map[string]*supervisor_pb.Portfolio{}
-	for algorithmID := range s.registrar.Algorithms {
-		s.portfolios[algorithmID] = &supervisor_pb.Portfolio{}
-		s.portfolios[algorithmID].Stocks = map[string]float64{}
-		s.portfolios[algorithmID].Usd = 1000000
-	}
-}
-
-// getTradingDatesInRange returns the trading dates in the given range.
-func (s *S) getTradingDatesInRange(
-	ctx context.Context, synchronousDailySimInput *supervisor_pb.SynchronousDailySimInput,
-) (*dailyprices_pb.TradingDates, error) {
-	var simRange dailyprices_pb.Range
-	simRange.Lb = synchronousDailySimInput.GetStart()
-	simRange.Ub = synchronousDailySimInput.GetEnd()
-	return s.registrar.DailyPrices.TradingDatesInRange(ctx, &simRange)
-}
-
-// executeAllAlgorithms tells each algorithm to begin working.
-func (s *S) executeAllAlgorithms(ctx context.Context, algorithmDate *timestamp_pb.Timestamp) error {
-	var input algorithmio_pb.Input
-	input.Timestamp = algorithmDate
-	for _, algorithm := range s.registrar.Algorithms {
-		go algorithm.Execute(ctx, &input)
-	}
-	return nil
 }
 
 // fillPendingOrders attempts to fill all pending orders.
@@ -176,7 +202,7 @@ func (s *S) fillPendingOrders(
 	}
 	for _, order := range s.pendingOrders {
 		// TODO: Check the return value of this to see whether to continue the order into the next tick.
-		s.HandleOrder(order, tradingPrices)
+		s.handleOrder(order, tradingPrices)
 	}
 	s.pendingOrders = []*supervisor_pb.Order{}
 	return tradingPrices, nil
@@ -209,11 +235,20 @@ func (s *S) closeDelistedPositions(
 
 	// For each delisted stock and each portfolio that holds it, close the position.
 	for ticker, closingPrice := range delistings {
-		for _, portfolio := range s.portfolios {
+		for algorithmID, portfolio := range s.portfolios {
 			volume, ok := portfolio.GetStocks()[ticker]
 			if ok && volume > 0 {
 				portfolio.Stocks[ticker] = 0
 				portfolio.Usd += volume * closingPrice
+				s.algorithmsOut[algorithmID].WriteString(
+					fmt.Sprintf(
+						"%s delisted, closed %f units at %f [value: %f]\n",
+						ticker,
+						volume,
+						closingPrice,
+						volume*closingPrice,
+					),
+				)
 			}
 		}
 	}
@@ -221,9 +256,78 @@ func (s *S) closeDelistedPositions(
 	return nil
 }
 
+// setupOutput makes output files for each algorithm and for gravy and returns them in a map. Also creates the
+// bufio.Writers used in the class.
+func (s *S) setupOutput(dir string) (closer func(), err error) {
+	// Create output directory if it doesn't exist.
+	_, err = os.Stat(dir)
+	if os.IsNotExist(err) {
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("Error creating directory `%s`: %s", dir, err.Error())
+		}
+	}
+
+	// Gravy log.
+	files := map[string]*os.File{}
+	files["gravy"], err = os.Create(path.Join(dir, "gravy.log"))
+	if err != nil {
+		return nil, fmt.Errorf("Error creating gravy log: %s", err.Error())
+	}
+	s.out = bufio.NewWriter(files["gravy"])
+
+	// Create log for each algorithm.
+	s.algorithmsOut = map[string]*bufio.Writer{}
+	for algorithmID := range s.registrar.Algorithms {
+		files[algorithmID], err = os.Create(path.Join(dir, algorithmID+".csv"))
+		if err != nil {
+			return nil, fmt.Errorf("Error creating log for algo `%s`: %s", algorithmID, err.Error())
+		}
+		s.algorithmsOut[algorithmID] = bufio.NewWriter(files[algorithmID])
+		s.algorithmsOutOrder = append(s.algorithmsOutOrder, algorithmID)
+	}
+	sort.Strings(s.algorithmsOutOrder)
+
+	// Write headers for gravy log.
+	s.out.WriteString(strings.Join(append([]string{"date"}, s.algorithmsOutOrder...), ",") + "\n")
+
+	// Create closer
+	closer = func() {
+		s.out.Flush()
+		files["gravy"].Close()
+		for algorithmID := range s.registrar.Algorithms {
+			s.algorithmsOut[algorithmID].Flush()
+			files[algorithmID].Close()
+		}
+	}
+
+	return
+}
+
+// logTick logs data for a tick to the gravy log.
+func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.DailyPrices) error {
+	// Convert to native timestamp.
+	nativeTime, err := ptypes.Timestamp(timestamp)
+	if err != nil {
+		return fmt.Errorf("Error converting timestamp to native time type: %s", err.Error())
+	}
+
+	// Get columns.
+	var cols []string = make([]string, len(s.algorithmsOutOrder)+1)
+	cols[0] = nativeTime.Format("2006-01-02")
+	for i, algorithmID := range s.algorithmsOutOrder {
+		cols[i+1] = fmt.Sprintf("%f", gravy.PortfolioValue(s.portfolios[algorithmID], prices))
+	}
+
+	// Log
+	s.out.WriteString(strings.Join(cols, ",") + "\n")
+
+	return nil
+}
+
 // SynchronousDailySim kicks off a synchronous daily sim.
 func (s *S) SynchronousDailySim(
-	ctx context.Context, synchronousDailySimInput *supervisor_pb.SynchronousDailySimInput,
+	ctx context.Context,
+	input *supervisor_pb.SynchronousDailySimInput,
 ) (*supervisor_pb.SynchronousDailySimOutput, error) {
 	// Lock the mutex.
 	s.mu.Lock()
@@ -232,10 +336,17 @@ func (s *S) SynchronousDailySim(
 	// Initialize algorithms and establish a liquid portfolio for each algorithm. TODO: parametrize the capital.
 	s.registrar.InitAllAlgorithms()
 	defer s.registrar.CloseAllAlgorithms()
-	s.initPortfolios(1000000)
+	s.initPortfolios(1000 * 1000 * 1000)
+
+	// Create output files.
+	closer, err := s.setupOutput(input.GetOutputDir())
+	if err != nil {
+		return nil, fmt.Errorf("Error creating log file: %s", err.Error())
+	}
+	defer closer()
 
 	// Get trading dates in range.
-	tradingDates, err := s.getTradingDatesInRange(ctx, synchronousDailySimInput)
+	tradingDates, err := s.getTradingDatesInRange(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting trading dates: %s", err.Error())
 	}
@@ -268,6 +379,9 @@ func (s *S) SynchronousDailySim(
 		// Check if any stocks have been delisted. If they have, close out the position for algorithms holding
 		// that stock.
 		s.closeDelistedPositions(ctx, algorithmDate, tradingPrices)
+
+		// Log for this tick.
+		s.logTick(tradingDate, tradingPrices)
 	}
 
 	var synchronousDailySimOutput supervisor_pb.SynchronousDailySimOutput

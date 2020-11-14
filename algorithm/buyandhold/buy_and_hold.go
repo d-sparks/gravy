@@ -8,6 +8,7 @@ import (
 	buyandhold_pb "github.com/d-sparks/gravy/algorithm/buyandhold/proto"
 	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
+	"github.com/d-sparks/gravy/gravy"
 	"github.com/d-sparks/gravy/registrar"
 	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -50,27 +51,13 @@ func (b *BuyAndHold) Close() {
 	b.registrar.Close()
 }
 
-// PortfolioValue returns the value at last closing prices.
-func PortfolioValue(portfolio *supervisor_pb.Portfolio, prices *dailyprices_pb.DailyPrices) float64 {
-	value := portfolio.GetUsd()
-	for ticker, volume := range portfolio.GetStocks() {
-		value += volume * prices.GetStockPrices()[ticker].GetClose()
-	}
-	return value
-}
-
-// TargetUniformInvestment returns the target value per stock to achieve uniform investment.
-func TargetUniformInvestment(portfolio *supervisor_pb.Portfolio, prices *dailyprices_pb.DailyPrices) float64 {
-	return PortfolioValue(portfolio, prices) / float64(len(prices.GetStockPrices()))
-}
-
 // InvestApproximatelyUniformly attempts to invest approximately uniformly.
 func (b *BuyAndHold) InvestApproximatelyUniformly(
 	portfolio *supervisor_pb.Portfolio,
 	prices *dailyprices_pb.DailyPrices,
 ) (orders []*supervisor_pb.Order) {
 	totalLimitOfOrders := 0.0
-	target := 0.99 * TargetUniformInvestment(portfolio, prices)
+	target := 0.99 * gravy.TargetUniformInvestment(portfolio, prices)
 	targetInvestments := map[string]float64{}
 
 	// Note: this will represent a total limit of
