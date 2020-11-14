@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 type SupervisorClient interface {
 	PlaceOrder(ctx context.Context, in *Order, opts ...grpc.CallOption) (*OrderConfirmation, error)
 	GetPortfolio(ctx context.Context, in *AlgorithmId, opts ...grpc.CallOption) (*Portfolio, error)
+	DoneTrading(ctx context.Context, in *AlgorithmId, opts ...grpc.CallOption) (*DoneTradingResponse, error)
 	SynchronousDailySim(ctx context.Context, in *SynchronousDailySimInput, opts ...grpc.CallOption) (*SynchronousDailySimOutput, error)
 	Abort(ctx context.Context, in *AbortInput, opts ...grpc.CallOption) (*AbortOutput, error)
 }
@@ -49,6 +50,15 @@ func (c *supervisorClient) GetPortfolio(ctx context.Context, in *AlgorithmId, op
 	return out, nil
 }
 
+func (c *supervisorClient) DoneTrading(ctx context.Context, in *AlgorithmId, opts ...grpc.CallOption) (*DoneTradingResponse, error) {
+	out := new(DoneTradingResponse)
+	err := c.cc.Invoke(ctx, "/supervisor.Supervisor/DoneTrading", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *supervisorClient) SynchronousDailySim(ctx context.Context, in *SynchronousDailySimInput, opts ...grpc.CallOption) (*SynchronousDailySimOutput, error) {
 	out := new(SynchronousDailySimOutput)
 	err := c.cc.Invoke(ctx, "/supervisor.Supervisor/SynchronousDailySim", in, out, opts...)
@@ -73,6 +83,7 @@ func (c *supervisorClient) Abort(ctx context.Context, in *AbortInput, opts ...gr
 type SupervisorServer interface {
 	PlaceOrder(context.Context, *Order) (*OrderConfirmation, error)
 	GetPortfolio(context.Context, *AlgorithmId) (*Portfolio, error)
+	DoneTrading(context.Context, *AlgorithmId) (*DoneTradingResponse, error)
 	SynchronousDailySim(context.Context, *SynchronousDailySimInput) (*SynchronousDailySimOutput, error)
 	Abort(context.Context, *AbortInput) (*AbortOutput, error)
 	mustEmbedUnimplementedSupervisorServer()
@@ -87,6 +98,9 @@ func (UnimplementedSupervisorServer) PlaceOrder(context.Context, *Order) (*Order
 }
 func (UnimplementedSupervisorServer) GetPortfolio(context.Context, *AlgorithmId) (*Portfolio, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPortfolio not implemented")
+}
+func (UnimplementedSupervisorServer) DoneTrading(context.Context, *AlgorithmId) (*DoneTradingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DoneTrading not implemented")
 }
 func (UnimplementedSupervisorServer) SynchronousDailySim(context.Context, *SynchronousDailySimInput) (*SynchronousDailySimOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SynchronousDailySim not implemented")
@@ -143,6 +157,24 @@ func _Supervisor_GetPortfolio_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Supervisor_DoneTrading_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlgorithmId)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SupervisorServer).DoneTrading(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/supervisor.Supervisor/DoneTrading",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SupervisorServer).DoneTrading(ctx, req.(*AlgorithmId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Supervisor_SynchronousDailySim_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SynchronousDailySimInput)
 	if err := dec(in); err != nil {
@@ -190,6 +222,10 @@ var _Supervisor_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPortfolio",
 			Handler:    _Supervisor_GetPortfolio_Handler,
+		},
+		{
+			MethodName: "DoneTrading",
+			Handler:    _Supervisor_DoneTrading_Handler,
 		},
 		{
 			MethodName: "SynchronousDailySim",

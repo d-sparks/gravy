@@ -4,7 +4,6 @@ package dailyprices_pb
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -19,6 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DataClient interface {
 	Get(ctx context.Context, in *Request, opts ...grpc.CallOption) (*DailyPrices, error)
+	TradingDatesInRange(ctx context.Context, in *Range, opts ...grpc.CallOption) (*TradingDates, error)
 }
 
 type dataClient struct {
@@ -38,11 +38,21 @@ func (c *dataClient) Get(ctx context.Context, in *Request, opts ...grpc.CallOpti
 	return out, nil
 }
 
+func (c *dataClient) TradingDatesInRange(ctx context.Context, in *Range, opts ...grpc.CallOption) (*TradingDates, error) {
+	out := new(TradingDates)
+	err := c.cc.Invoke(ctx, "/dailyprices.Data/TradingDatesInRange", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DataServer is the server API for Data service.
 // All implementations must embed UnimplementedDataServer
 // for forward compatibility
 type DataServer interface {
 	Get(context.Context, *Request) (*DailyPrices, error)
+	TradingDatesInRange(context.Context, *Range) (*TradingDates, error)
 	mustEmbedUnimplementedDataServer()
 }
 
@@ -52,6 +62,9 @@ type UnimplementedDataServer struct {
 
 func (UnimplementedDataServer) Get(context.Context, *Request) (*DailyPrices, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedDataServer) TradingDatesInRange(context.Context, *Range) (*TradingDates, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TradingDatesInRange not implemented")
 }
 func (UnimplementedDataServer) mustEmbedUnimplementedDataServer() {}
 
@@ -84,6 +97,24 @@ func _Data_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Data_TradingDatesInRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Range)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServer).TradingDatesInRange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dailyprices.Data/TradingDatesInRange",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServer).TradingDatesInRange(ctx, req.(*Range))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Data_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "dailyprices.Data",
 	HandlerType: (*DataServer)(nil),
@@ -91,6 +122,10 @@ var _Data_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _Data_Get_Handler,
+		},
+		{
+			MethodName: "TradingDatesInRange",
+			Handler:    _Data_TradingDatesInRange_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

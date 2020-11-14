@@ -23,7 +23,8 @@ var (
 		"postgres://localhost:5432/gravy?sslmode=disable",
 		"Gravy db url.",
 	)
-	dailyPricesTable = flag.String("prices_table", "dailyprices", "Daily prices logical table.")
+	dailyPricesTable  = flag.String("prices_table", "dailyprices", "Daily prices logical table.")
+	tradingDatesTable = flag.String("trading_dates", "tradingdates", "Trading dates logical table.")
 )
 
 // DailyPricesServer implements dailyprices_pb.DataServer.
@@ -31,8 +32,9 @@ type DailyPricesServer struct {
 	dailyprices_pb.UnimplementedDataServer
 
 	// PostGRES
-	db        *sql.DB
-	tableName string
+	db                    *sql.DB
+	pricesTableName       string
+	tradingDatesTableName string
 
 	// Cache
 	mu    sync.Mutex
@@ -40,7 +42,11 @@ type DailyPricesServer struct {
 }
 
 // NewDailyPricesServer creates an empty daily prices server.
-func NewDailyPricesServer(postgresURL string, dailyPricesTable string) (*DailyPricesServer, error) {
+func NewDailyPricesServer(
+	postgresURL string,
+	dailyPricesTable string,
+	tradingDatesTable string,
+) (*DailyPricesServer, error) {
 	log.Printf("Connecting to database `%s`", postgresURL)
 	db, err := sql.Open("postgres", postgresURL)
 	if err != nil {
@@ -49,7 +55,8 @@ func NewDailyPricesServer(postgresURL string, dailyPricesTable string) (*DailyPr
 
 	var dailyPricesServer DailyPricesServer
 	dailyPricesServer.db = db
-	dailyPricesServer.tableName = dailyPricesTable
+	dailyPricesServer.pricesTableName = dailyPricesTable
+	dailyPricesServer.tradingDatesTableName = tradingDatesTable
 	dailyPricesServer.cache = map[int32]map[time.Time]*dailyprices_pb.DailyPrices{}
 
 	return &dailyPricesServer, nil
@@ -81,7 +88,7 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 	rows, err := s.db.Query(
 		fmt.Sprintf(
 			"SELECT ticker, open, close, adj_close, low, high, volume FROM %s WHERE date = $1",
-			s.tableName,
+			s.pricesTableName,
 		),
 		tickTime.Format("2006-01-02"),
 	)
@@ -123,6 +130,60 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 	return &dailyPrices, nil
 }
 
+// TradingDatesInRange implements the interface method. Returns trading dates in the given range.
+func (s *DailyPricesServer) TradingDatesInRange(
+	ctx context.Context,
+	dateRange *dailyprices_pb.Range,
+) (*dailyprices_pb.TradingDates, error) {
+	// Parse timestamps to Golang native time.
+	lb, err := ptypes.Timestamp(dateRange.GetLb())
+	if err != nil {
+		return nil, fmt.Errorf("Invalid lb timestamp: %s", err.Error())
+	}
+	ub, err := ptypes.Timestamp(dateRange.GetUb())
+	if err != nil {
+		return nil, fmt.Errorf("Invalid ub timestamp: %s", err.Error())
+	}
+
+	// Query for dates.
+	rows, err := s.db.Query(
+		fmt.Sprintf(
+			"SELECT DISTINCT date FROM %s WHERE date >= $1 AND date <= $2 ORDER BY date",
+			s.tradingDatesTableName,
+		),
+		lb.Format("2006-01-02"),
+		ub.Format("2006-01-02"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Error querying for distinct dates: `%s`", err.Error())
+	}
+
+	// Scan and parse dates into a slice.
+	tradingDates := dailyprices_pb.TradingDates{}
+	for rows.Next() {
+		var dateStr string
+		if err := rows.Scan(&dateStr); err != nil {
+			return nil, fmt.Errorf("Error scanning date `%s` from postgres: %s", dateStr, err.Error())
+		}
+		date, err := time.Parse("2006-01-02T15:04:05Z", dateStr)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse date `%s`: %s", dateStr, err.Error())
+		}
+		dateProto, err := ptypes.TimestampProto(date)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing timestamp to proto: %s", err.Error())
+		}
+		tradingDates.Timestamps = append(tradingDates.Timestamps, dateProto)
+
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("Error scanning rows for distinct dates: %s", rows.Err().Error())
+	}
+
+	return &tradingDates, nil
+}
+
+// TODO(dansparks): Move this to cmd/.
 func main() {
 	flag.Parse()
 
@@ -134,7 +195,7 @@ func main() {
 	}
 
 	// Make daily prices server (connect to DB)
-	dailyPricesServer, err := NewDailyPricesServer(*postgresURL, *dailyPricesTable)
+	dailyPricesServer, err := NewDailyPricesServer(*postgresURL, *dailyPricesTable, *tradingDatesTable)
 	if err != nil {
 		log.Fatalf("Error constructing server: %s", err.Error())
 	}

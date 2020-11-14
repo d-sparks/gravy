@@ -44,5 +44,22 @@ func main() {
 	// Print result.
 	for _, stockPrices := range prices.GetStockPrices() {
 		fmt.Println(stockPrices)
+		break
+	}
+
+	// Trading dates request.
+	var dateRange dailyprices_pb.Range
+	dateRange.Lb = timestamp
+	dateRange.Ub = timestamp
+
+	ctxx, cancell := context.WithTimeout(context.Background(), time.Second)
+	defer cancell()
+	tradingDates, err := pricesClient.TradingDatesInRange(ctxx, &dateRange)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	for _, date := range tradingDates.Timestamps {
+		fmt.Println(ptypes.TimestampString(date))
 	}
 }
