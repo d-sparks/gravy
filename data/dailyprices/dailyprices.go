@@ -65,6 +65,7 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 	s.mu.Lock()
 	if versionPrices, ok := s.cache[req.GetVersion()]; ok {
 		if cachedDailyPrices, ok := versionPrices[tickTime]; ok {
+			s.mu.Unlock()
 			return cachedDailyPrices, nil
 		}
 	}

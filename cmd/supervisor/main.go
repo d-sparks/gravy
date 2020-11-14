@@ -41,7 +41,7 @@ func main() {
 		log.Fatalf("Failed to listen over tcp: %s", err.Error())
 	}
 
-	// Make daily prices server (connect to DB)
+	// Make server (uninitialized)
 	tradingMode := parseTradingMode(*mode)
 	supervisorServer, err := supervisor.New(tradingMode)
 	if err != nil {
@@ -52,10 +52,10 @@ func main() {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 	supervisor_pb.RegisterSupervisorServer(grpcServer, supervisorServer)
-	log.Printf("Listening on `%s`", listeningOn)
 
 	// Init and serve.
 	supervisorServer.Init()
 	defer supervisorServer.Close()
+	log.Printf("Listening on `%s`", listeningOn)
 	grpcServer.Serve(lis)
 }

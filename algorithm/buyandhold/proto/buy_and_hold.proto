@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+option go_package = "github.com/d-sparks/gravy/algorithm/buyandhold/proto;buyandhold_pb";
+
+import "algorithm/proto/algorithm_io.proto";
+
+package buyandhold;
+
+service BuyAndHold {
+  rpc Execute(algorithmio.Input) returns (algorithmio.Output) {}
+}

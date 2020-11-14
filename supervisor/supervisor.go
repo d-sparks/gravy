@@ -156,11 +156,8 @@ func (s *S) getTradingDatesInRange(
 func (s *S) executeAllAlgorithms(ctx context.Context, algorithmDate *timestamp_pb.Timestamp) error {
 	var input algorithmio_pb.Input
 	input.Timestamp = algorithmDate
-	for algorithmID, algorithm := range s.registrar.Algorithms {
-		_, err := algorithm.Execute(ctx, &input)
-		if err != nil {
-			return fmt.Errorf("Error communicating with algorithm `%s`: %s", algorithmID, err.Error())
-		}
+	for _, algorithm := range s.registrar.Algorithms {
+		go algorithm.Execute(ctx, &input)
 	}
 	return nil
 }
@@ -232,7 +229,9 @@ func (s *S) SynchronousDailySim(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Give money to each algorithm. TODO: parametrize this.
+	// Initialize algorithms and establish a liquid portfolio for each algorithm. TODO: parametrize the capital.
+	s.registrar.InitAllAlgorithms()
+	defer s.registrar.CloseAllAlgorithms()
 	s.initPortfolios(1000000)
 
 	// Get trading dates in range.
@@ -269,11 +268,19 @@ func (s *S) SynchronousDailySim(
 		// Check if any stocks have been delisted. If they have, close out the position for algorithms holding
 		// that stock.
 		s.closeDelistedPositions(ctx, algorithmDate, tradingPrices)
-
 	}
 
 	var synchronousDailySimOutput supervisor_pb.SynchronousDailySimOutput
 	return &synchronousDailySimOutput, nil
+}
+
+// DoneTrading lets an algorithm signal that it is done trading in this tick.
+func (s *S) DoneTrading(
+	ctx context.Context,
+	algorithmID *supervisor_pb.AlgorithmId,
+) (*supervisor_pb.DoneTradingResponse, error) {
+	s.doneWorking <- struct{}{}
+	return &supervisor_pb.DoneTradingResponse{}, nil
 }
 
 // Abort aborts the current trading mode. For live trading, this should also try to intelligently close positions.

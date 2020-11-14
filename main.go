@@ -2,64 +2,45 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
-	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
+	"github.com/d-sparks/gravy/registrar"
+	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
 	"github.com/golang/protobuf/ptypes"
-	"google.golang.org/grpc"
+	timestamp_pb "github.com/golang/protobuf/ptypes/timestamp"
 )
 
-func main() {
-	// Open client.
-	opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
-	conn, err := grpc.Dial("localhost:17501", opts...)
+func fatalIfErr(err error) {
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	defer conn.Close()
-	pricesClient := dailyprices_pb.NewDataClient(conn)
+}
 
-	// Construct Request.
-	var req dailyprices_pb.Request
-	date, err := time.Parse("2006-01-02", "2006-01-03")
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-	timestamp, err := ptypes.TimestampProto(date)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-	req.Timestamp = timestamp
+func parseTimeOrDie(timeString string) *timestamp_pb.Timestamp {
+	nativeTime, err := time.Parse("2006-01-02", timeString)
+	fatalIfErr(err)
+	timestamp, err := ptypes.TimestampProto(nativeTime)
+	fatalIfErr(err)
+	return timestamp
+}
+
+func main() {
+	// Open registrar.
+	log.Println("qwaer")
+	registrar, err := registrar.NewWithSupervisor()
+	log.Println("qwaer")
+	fatalIfErr(err)
+	defer registrar.Close()
+
+	// Open client.
+	var req supervisor_pb.SynchronousDailySimInput
+	req.Start = parseTimeOrDie("2006-01-03")
+	req.End = parseTimeOrDie("2006-03-03")
 
 	// Send request.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	prices, err := pricesClient.Get(ctx, &req)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	// Print result.
-	for _, stockPrices := range prices.GetStockPrices() {
-		fmt.Println(stockPrices)
-		break
-	}
-
-	// Trading dates request.
-	var dateRange dailyprices_pb.Range
-	dateRange.Lb = timestamp
-	dateRange.Ub = timestamp
-
-	ctxx, cancell := context.WithTimeout(context.Background(), time.Second)
-	defer cancell()
-	tradingDates, err := pricesClient.TradingDatesInRange(ctxx, &dateRange)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	for _, date := range tradingDates.Timestamps {
-		fmt.Println(ptypes.TimestampString(date))
-	}
+	_, err = registrar.Supervisor.SynchronousDailySim(ctx, &req)
+	fatalIfErr(err)
 }
