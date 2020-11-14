@@ -9,6 +9,7 @@ import (
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	"github.com/d-sparks/gravy/registrar"
 	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
+	timestamp_pb "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -131,6 +132,98 @@ func (s *S) HandleOrder(order *supervisor_pb.Order, dailyPrices *dailyprices_pb.
 	return false
 }
 
+// initPortfolios makes each portfolio have no positions and an initial capital in USD.
+func (s *S) initPortfolios(capitalEach float64) {
+	s.portfolios = map[string]*supervisor_pb.Portfolio{}
+	for algorithmID := range s.registrar.Algorithms {
+		s.portfolios[algorithmID] = &supervisor_pb.Portfolio{}
+		s.portfolios[algorithmID].Stocks = map[string]float64{}
+		s.portfolios[algorithmID].Usd = 1000000
+	}
+}
+
+// getTradingDatesInRange returns the trading dates in the given range.
+func (s *S) getTradingDatesInRange(
+	ctx context.Context, synchronousDailySimInput *supervisor_pb.SynchronousDailySimInput,
+) (*dailyprices_pb.TradingDates, error) {
+	var simRange dailyprices_pb.Range
+	simRange.Lb = synchronousDailySimInput.GetStart()
+	simRange.Ub = synchronousDailySimInput.GetEnd()
+	return s.registrar.DailyPrices.TradingDatesInRange(ctx, &simRange)
+}
+
+// executeAllAlgorithms tells each algorithm to begin working.
+func (s *S) executeAllAlgorithms(ctx context.Context, algorithmDate *timestamp_pb.Timestamp) error {
+	var input algorithmio_pb.Input
+	input.Timestamp = algorithmDate
+	for algorithmID, algorithm := range s.registrar.Algorithms {
+		_, err := algorithm.Execute(ctx, &input)
+		if err != nil {
+			return fmt.Errorf("Error communicating with algorithm `%s`: %s", algorithmID, err.Error())
+		}
+	}
+	return nil
+}
+
+// fillPendingOrders attempts to fill all pending orders.
+func (s *S) fillPendingOrders(
+	ctx context.Context,
+	tradingDate *timestamp_pb.Timestamp,
+) (*dailyprices_pb.DailyPrices, error) {
+	var pricesReq dailyprices_pb.Request
+	pricesReq.Timestamp = tradingDate
+	pricesReq.Version = 0
+	tradingPrices, err := s.registrar.DailyPrices.Get(ctx, &pricesReq)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting trading prices: %s", err.Error())
+	}
+	for _, order := range s.pendingOrders {
+		// TODO: Check the return value of this to see whether to continue the order into the next tick.
+		s.HandleOrder(order, tradingPrices)
+	}
+	s.pendingOrders = []*supervisor_pb.Order{}
+	return tradingPrices, nil
+}
+
+// closeDelistedPositions compares the stocks listed in two DailyPrices. For stocks in the former but not in the latter,
+// look for any portfolios that hold that stock and close the position at the former DailyPrices closing price.
+func (s *S) closeDelistedPositions(
+	ctx context.Context,
+	algorithmDate *timestamp_pb.Timestamp,
+	tradingPrices *dailyprices_pb.DailyPrices,
+) error {
+	// Get prices as the algorithm is aware.
+	var pricesReq dailyprices_pb.Request
+	pricesReq.Timestamp = algorithmDate
+	pricesReq.Version = 0
+	algorithmPrices, err := s.registrar.DailyPrices.Get(ctx, &pricesReq)
+	if err != nil {
+		return fmt.Errorf("Error getting algorithm trading prices: %s", err.Error())
+	}
+
+	// Find stocks the algorithm was holding but aren't in the tradingPrices.
+	delistings := map[string]float64{}
+	for ticker := range algorithmPrices.GetStockPrices() {
+		_, ok := tradingPrices.GetStockPrices()[ticker]
+		if !ok {
+			delistings[ticker] = algorithmPrices.GetStockPrices()[ticker].GetClose()
+		}
+	}
+
+	// For each delisted stock and each portfolio that holds it, close the position.
+	for ticker, closingPrice := range delistings {
+		for _, portfolio := range s.portfolios {
+			volume, ok := portfolio.GetStocks()[ticker]
+			if ok && volume > 0 {
+				portfolio.Stocks[ticker] = 0
+				portfolio.Usd += volume * closingPrice
+			}
+		}
+	}
+
+	return nil
+}
+
 // SynchronousDailySim kicks off a synchronous daily sim.
 func (s *S) SynchronousDailySim(
 	ctx context.Context, synchronousDailySimInput *supervisor_pb.SynchronousDailySimInput,
@@ -140,17 +233,10 @@ func (s *S) SynchronousDailySim(
 	defer s.mu.Unlock()
 
 	// Give money to each algorithm. TODO: parametrize this.
-	s.portfolios = map[string]*supervisor_pb.Portfolio{}
-	for algorithmID := range s.registrar.Algorithms {
-		s.portfolios[algorithmID] = &supervisor_pb.Portfolio{}
-		s.portfolios[algorithmID].Usd = 1000000
-	}
+	s.initPortfolios(1000000)
 
 	// Get trading dates in range.
-	var simRange dailyprices_pb.Range
-	simRange.Lb = synchronousDailySimInput.GetStart()
-	simRange.Ub = synchronousDailySimInput.GetEnd()
-	tradingDates, err := s.registrar.DailyPrices.TradingDatesInRange(ctx, &simRange)
+	tradingDates, err := s.getTradingDatesInRange(ctx, synchronousDailySimInput)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting trading dates: %s", err.Error())
 	}
@@ -163,17 +249,8 @@ func (s *S) SynchronousDailySim(
 		tradingDate := tradingDates.GetTimestamps()[i]
 
 		// Tell each algorithm to begin working.
-		var input algorithmio_pb.Input
-		input.Timestamp = algorithmDate
-		for algorithmID, algorithm := range s.registrar.Algorithms {
-			_, err := algorithm.Execute(ctx, &input)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"Error communicating with algorithm `%s`: %s",
-					algorithmID,
-					err.Error(),
-				)
-			}
+		if err := s.executeAllAlgorithms(ctx, algorithmDate); err != nil {
+			return nil, err
 		}
 
 		// Wait for each algorithm to be done, up to a max timeout. TODO: handle deadlock gracefully. For
@@ -184,43 +261,15 @@ func (s *S) SynchronousDailySim(
 		}
 
 		// Try to fulfill pending orders.
-		var pricesReq dailyprices_pb.Request
-		pricesReq.Timestamp = tradingDate
-		pricesReq.Version = 0
-		tradingPrices, err := s.registrar.DailyPrices.Get(ctx, &pricesReq)
+		tradingPrices, err := s.fillPendingOrders(ctx, tradingDate)
 		if err != nil {
-			return nil, fmt.Errorf("Error getting trading prices: %s", err.Error())
-		}
-		for _, order := range s.pendingOrders {
-			// TODO: Check the return value of this to see whether to continue the order into the next tick.
-			s.HandleOrder(order, tradingPrices)
+			return nil, err
 		}
 
 		// Check if any stocks have been delisted. If they have, close out the position for algorithms holding
 		// that stock.
-		pricesReq.Timestamp = algorithmDate
-		algorithmPrices, err := s.registrar.DailyPrices.Get(ctx, &pricesReq)
-		if err != nil {
-			return nil, fmt.Errorf("Error getting algorithm trading prices: %s", err.Error())
-		}
-		delistings := map[string]float64{}
-		for ticker := range algorithmPrices.GetStockPrices() {
-			_, ok := tradingPrices.GetStockPrices()[ticker]
-			if !ok {
-				delistings[ticker] = algorithmPrices.GetStockPrices()[ticker].GetClose()
-			}
-		}
-		for ticker, closingPrice := range delistings {
-			for _, portfolio := range s.portfolios {
-				volume, ok := portfolio.GetStocks()[ticker]
-				if ok && volume > 0 {
-					portfolio.Stocks[ticker] = 0
-					portfolio.Usd += volume * closingPrice
-				}
-			}
-		}
+		s.closeDelistedPositions(ctx, algorithmDate, tradingPrices)
 
-		s.pendingOrders = []*supervisor_pb.Order{}
 	}
 
 	var synchronousDailySimOutput supervisor_pb.SynchronousDailySimOutput
