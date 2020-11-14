@@ -1,30 +1,16 @@
-package main
+package dailyprices
 
 import (
 	"context"
 	"database/sql"
-	"flag"
 	"fmt"
 	"log"
-	"net"
 	"sync"
 	"time"
 
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	"github.com/golang/protobuf/ptypes"
 	_ "github.com/lib/pq"
-	"google.golang.org/grpc"
-)
-
-var (
-	port        = flag.Int("port", 17501, "Port for rpc server.")
-	postgresURL = flag.String(
-		"postgres_url",
-		"postgres://localhost:5432/gravy?sslmode=disable",
-		"Gravy db url.",
-	)
-	dailyPricesTable  = flag.String("prices_table", "dailyprices", "Daily prices logical table.")
-	tradingDatesTable = flag.String("trading_dates", "tradingdates", "Trading dates logical table.")
 )
 
 // DailyPricesServer implements dailyprices_pb.DataServer.
@@ -98,10 +84,12 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 
 	// Construct daily prices by scanning the query result.
 	var dailyPrices dailyprices_pb.DailyPrices
+	dailyPrices.StockPrices = map[string]*dailyprices_pb.DailyPrices_StockPrices{}
 	for rows.Next() {
 		var stockPrices dailyprices_pb.DailyPrices_StockPrices
+		var ticker string
 		err := rows.Scan(
-			&stockPrices.Ticker,
+			&ticker,
 			&stockPrices.Open,
 			&stockPrices.Close,
 			&stockPrices.AdjClose,
@@ -112,7 +100,7 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 		if err != nil {
 			return nil, fmt.Errorf("Error while parsing row: `%s`", err.Error())
 		}
-		dailyPrices.StockPrices = append(dailyPrices.GetStockPrices(), &stockPrices)
+		dailyPrices.StockPrices[ticker] = &stockPrices
 	}
 	if rows.Err() != nil {
 		return nil, fmt.Errorf("Error constructing response: `%s`", rows.Err().Error())
@@ -181,29 +169,4 @@ func (s *DailyPricesServer) TradingDatesInRange(
 	}
 
 	return &tradingDates, nil
-}
-
-// TODO(dansparks): Move this to cmd/.
-func main() {
-	flag.Parse()
-
-	// Listen on tcp
-	listeningOn := fmt.Sprintf("localhost:%d", *port)
-	lis, err := net.Listen("tcp", listeningOn)
-	if err != nil {
-		log.Fatalf("Failed to listen over tcp: %s", err.Error())
-	}
-
-	// Make daily prices server (connect to DB)
-	dailyPricesServer, err := NewDailyPricesServer(*postgresURL, *dailyPricesTable, *tradingDatesTable)
-	if err != nil {
-		log.Fatalf("Error constructing server: %s", err.Error())
-	}
-
-	// Create grcp server and serve
-	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
-	dailyprices_pb.RegisterDataServer(grpcServer, dailyPricesServer)
-	log.Printf("Listening on `%s`", listeningOn)
-	grpcServer.Serve(lis)
 }
