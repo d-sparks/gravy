@@ -22,6 +22,15 @@ type R struct {
 
 	// Data
 	DailyPrices dailyprices_pb.DataClient
+
+	connections []*grpc.ClientConn
+}
+
+// Close all connections.
+func (r *R) Close() {
+	for _, conn := range r.connections {
+		conn.Close()
+	}
 }
 
 // openSupervisorConnection opens a connection to the supervisor
@@ -31,6 +40,7 @@ func (r *R) openSupervisorConnection(url string) error {
 	if err != nil {
 		return err
 	}
+	r.connections = append(r.connections, conn)
 	r.Supervisor = supervisor_pb.NewSupervisorClient(conn)
 	return nil
 }

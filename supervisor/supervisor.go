@@ -17,10 +17,14 @@ import (
 type TradingMode int
 
 const (
-	syncTM TradingMode = iota
-	asyncTM
-	paperTM
-	liveTM
+	// SyncTM represents Synchronous daily simulated trading.
+	SyncTM TradingMode = iota
+	// AsyncTM represents asynchronous simulated trading.
+	AsyncTM
+	// PaperTM represents live trading with paper money.
+	PaperTM
+	// LiveTM represents live trading with real money.
+	LiveTM
 )
 
 // S is the supervisor.
@@ -50,16 +54,25 @@ type S struct {
 func New(tradingMode TradingMode) (*S, error) {
 	var s S
 
-	var err error
-	s.registrar, err = registrar.New()
-	if err != nil {
-		return nil, fmt.Errorf("Error constructing registrar: %s", err.Error())
-	}
-
 	s.doneWorking = make(chan struct{})
 	s.tradingMode = tradingMode
 
 	return &s, nil
+}
+
+// Init initializes the supervisor, in particular the registrar.
+func (s *S) Init() error {
+	var err error
+	s.registrar, err = registrar.New()
+	if err != nil {
+		return fmt.Errorf("Error constructing registrar: %s", err.Error())
+	}
+	return nil
+}
+
+// Close closes the registrar.
+func (s *S) Close() {
+	s.registrar.Close()
 }
 
 // PlaceOrder places an order in the set trading mode.
