@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option go_package = "github.com/d-sparks/gravy/data/dailyprices/proto;dailyprices_pb";
+
+import "google/protobuf/timestamp.proto";
+
+package dailyprices;
+
+service Data {
+  rpc Get(Request) returns (DailyPrices) {}
+
+  rpc TradingDatesInRange(Range) returns (TradingDates) {}
+}
+
+message Request {
+  google.protobuf.Timestamp timestamp = 1;
+  int32 version = 2;
+}
+
+message DailyPrices {
+  message StockPrices {
+    double open = 1;
+    double close = 2;
+    double adj_close = 3;
+    double low = 4;
+    double high = 5;
+    double volume = 6;
+  }
+
+  map<string, StockPrices> stock_prices = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  int32 version = 3;
+}
+
+message Range {
+  google.protobuf.Timestamp lb = 1;
+  google.protobuf.Timestamp ub = 2;
+}
+
+message TradingDates {
+  repeated google.protobuf.Timestamp timestamps = 1;
+}

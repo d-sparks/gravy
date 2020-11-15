@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+option go_package = "github.com/d-sparks/gravy/supervisor/proto;supervisor_pb";
+
+import "google/protobuf/timestamp.proto";
+
+package supervisor;
+
+service Supervisor {
+  rpc PlaceOrder(Order) returns (OrderConfirmation) {}
+
+  rpc GetPortfolio(AlgorithmId) returns (Portfolio) {}
+
+  rpc DoneTrading(AlgorithmId) returns  (DoneTradingResponse) {}
+
+  rpc SynchronousDailySim(SynchronousDailySimInput) returns (SynchronousDailySimOutput) {}
+
+  rpc Abort(AbortInput) returns (AbortOutput) {}
+}
+
+message AlgorithmId {
+  string algorithm_id = 1;
+}
+
+message Order {
+  AlgorithmId algorithm_id = 1;
+  string ticker = 2;
+  double volume = 3;
+  double limit = 4;
+  double stop = 5;
+}
+
+message OrderConfirmation {
+}
+
+message Portfolio {
+  map<string, double> stocks = 1;
+  double usd = 2;
+}
+
+message SynchronousDailySimInput {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  repeated AlgorithmId algorithms = 3;
+  string output_dir = 4;
+}
+
+message SynchronousDailySimOutput {
+}
+
+message AbortInput {
+}
+
+message AbortOutput {
+}
+
+message DoneTradingResponse {
+}

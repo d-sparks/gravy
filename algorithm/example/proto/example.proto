@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+option go_package = "github.com/d-sparks/gravy/algorithm/example/proto;example_pb";
+
+import "algorithm/proto/algorithm_io.proto";
+
+package example;
+
+service Example {
+  rpc Execute(algorithmio.Input) returns (algorithmio.Output) {}
+}

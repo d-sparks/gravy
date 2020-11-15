@@ -1,23 +1,28 @@
 # gravy
 
-![](http://www.artyfactory.com/art_appreciation/animals_in_art/pablo_picasso/picasso_bull_plate_5.jpg)
+![](https://i.pinimg.com/originals/fe/68/55/fe68554a8fc5edad57e7e19a6bb51ec5.jpg)
 
-## Getting started
+## Overview
 
-#### To create a database from scratch:
+Gravy consists of several microservices that operate over grpc:
 
-1. Download the kaggle data and put it in `kaggle/data/`.
-2. Install postgres and have it running on localhost.
-3. `createdb gravy`
-4. `cat kaggle/create_tables.sql | psql gravy`
-5. `go run cmd/gravy/*.go` (takes > 5 hours)
-6. `cat kaggle/create_indexes.sql | psql gravy`
+1. Data sources (e.g. `data/dailyprices`)
+2. Supervisor (`supervisor`)
+3. Algorithms (e.g. `algorithms/buyandhold`)
 
-#### To restore the database from a dump:
+In theory, one can leave the data sources and supervisor running in between backtesting sessions.
 
-1. Download the kaggle database dump and put it in `kaggle/data`.
-2. Install postgres and have it running on localhost.
-3. `psql gravy < kaggle/data/pg_dump_output`. (Haven't tried this yet.)
+The supervisor is responsible for managing the backtest and will communicate with algorithms.
+
+#### To run gravy:
+
+1. Follow the instructions in `data/dailyprices` to get the basic `dailyprices` db.
+2. `go run cmd/data/dailyprices/main.go`
+3. `go run cmd/supervisor/main.go`
+4. `go run cmd/algorithms/buyandhold/main.go`
+5. `go run main.go`
+
+This should create a few files in `/tmp/foo` that are the output of the backtest.
 
 #### To ask what are the five best days for GOOGL stock.
 
