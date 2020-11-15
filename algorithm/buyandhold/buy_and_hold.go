@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 
-	buyandhold_pb "github.com/d-sparks/gravy/algorithm/buyandhold/proto"
 	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	"github.com/d-sparks/gravy/gravy"
@@ -14,12 +13,12 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
-const algorithmEnum = registrar.BuyAndHold
-
 // BuyAndHold is a simple algorithm that tries to buy a fairly diversified portfolio and holds forever. If stocks are
 // delisted, the proceeds are invested in an attempt to extend diversity.
 type BuyAndHold struct {
-	buyandhold_pb.UnimplementedBuyAndHoldServer
+	algorithmio_pb.UnimplementedAlgorithmServer
+
+	id string
 
 	algorithmID *supervisor_pb.AlgorithmId
 
@@ -29,11 +28,12 @@ type BuyAndHold struct {
 }
 
 // New creates a new, uninitialized BuyAndHold algorithm.
-func New() *BuyAndHold {
+func New(algorithmID string) *BuyAndHold {
 	var b BuyAndHold
 
+	b.id = algorithmID
 	b.algorithmID = &supervisor_pb.AlgorithmId{}
-	b.algorithmID.AlgorithmId = registrar.AlgorithmSpecs[algorithmEnum].ID
+	b.algorithmID.AlgorithmId = b.id
 	b.invested = false
 
 	return &b
@@ -125,11 +125,7 @@ func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (
 
 	portfolio, err := b.registrar.Supervisor.GetPortfolio(ctx, b.algorithmID)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"Error getting portfolio in `%s`: %s",
-			registrar.AlgorithmSpecs[algorithmEnum].ID,
-			err.Error(),
-		)
+		return nil, fmt.Errorf("Error getting portfolio in `%s`: %s", b.id, err.Error())
 	}
 
 	var req dailyprices_pb.Request
@@ -137,11 +133,7 @@ func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (
 	req.Version = 0
 	dailyPrices, err := b.registrar.DailyPrices.Get(ctx, &req)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"Error getting daily prices in `%s`: %s",
-			registrar.AlgorithmSpecs[algorithmEnum].ID,
-			err.Error(),
-		)
+		return nil, fmt.Errorf("Error getting daily prices in `%s`: %s", b.id, err.Error())
 	}
 
 	if !b.invested {
@@ -150,7 +142,7 @@ func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (
 			if _, err := b.registrar.Supervisor.PlaceOrder(ctx, order); err != nil {
 				return nil, fmt.Errorf(
 					"Error placing supplemental order from `%s`: %s",
-					registrar.AlgorithmSpecs[algorithmEnum].ID,
+					b.id,
 					err.Error(),
 				)
 			}
@@ -159,10 +151,7 @@ func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (
 	}
 
 	if _, err = b.registrar.Supervisor.DoneTrading(ctx, b.algorithmID); err != nil {
-		return nil, fmt.Errorf(
-			"Error calling DoneTrading from `%s`: %s",
-			registrar.AlgorithmSpecs[algorithmEnum].ID,
-			err.Error())
+		return nil, fmt.Errorf("Error calling DoneTrading from `%s`: %s", b.id, err.Error())
 	}
 
 	return &algorithmio_pb.Output{}, nil

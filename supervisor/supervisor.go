@@ -242,10 +242,11 @@ func (s *S) closeDelistedPositions(
 				portfolio.Usd += volume * closingPrice
 				s.algorithmsOut[algorithmID].WriteString(
 					fmt.Sprintf(
-						"%s delisted, closed %f units at %f [value: %f]\n",
+						"%s delisted, closed %f units at %f on %s [value: %f]\n",
 						ticker,
 						volume,
 						closingPrice,
+						ptypes.TimestampString(algorithmDate),
 						volume*closingPrice,
 					),
 				)
@@ -288,7 +289,7 @@ func (s *S) setupOutput(dir string) (closer func(), err error) {
 	sort.Strings(s.algorithmsOutOrder)
 
 	// Write headers for gravy log.
-	s.out.WriteString(strings.Join(append([]string{"date"}, s.algorithmsOutOrder...), ",") + "\n")
+	s.out.WriteString(strings.Join(append([]string{"date", "^GSPC"}, s.algorithmsOutOrder...), ",") + "\n")
 
 	// Create closer
 	closer = func() {
@@ -298,6 +299,7 @@ func (s *S) setupOutput(dir string) (closer func(), err error) {
 			s.algorithmsOut[algorithmID].Flush()
 			files[algorithmID].Close()
 		}
+		s.algorithmsOutOrder = nil
 	}
 
 	return
@@ -312,10 +314,14 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	}
 
 	// Get columns.
-	var cols []string = make([]string, len(s.algorithmsOutOrder)+1)
+	var cols []string = make([]string, len(s.algorithmsOutOrder)+2)
 	cols[0] = nativeTime.Format("2006-01-02")
+	cols[1] = "-"
+	if stockPrices, ok := prices.GetStockPrices()["^GSPC"]; ok {
+		cols[1] = fmt.Sprintf("%f", stockPrices.GetClose())
+	}
 	for i, algorithmID := range s.algorithmsOutOrder {
-		cols[i+1] = fmt.Sprintf("%f", gravy.PortfolioValue(s.portfolios[algorithmID], prices))
+		cols[i+2] = fmt.Sprintf("%f", gravy.PortfolioValue(s.portfolios[algorithmID], prices))
 	}
 
 	// Log
@@ -334,9 +340,12 @@ func (s *S) SynchronousDailySim(
 	defer s.mu.Unlock()
 
 	// Initialize algorithms and establish a liquid portfolio for each algorithm. TODO: parametrize the capital.
-	s.registrar.InitAllAlgorithms()
+	s.registrar.InitAlgorithms(input.GetAlgorithms()...)
 	defer s.registrar.CloseAllAlgorithms()
 	s.initPortfolios(1000 * 1000 * 1000)
+	defer func() {
+		s.portfolios = nil
+	}()
 
 	// Create output files.
 	closer, err := s.setupOutput(input.GetOutputDir())

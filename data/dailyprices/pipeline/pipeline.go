@@ -191,7 +191,7 @@ func pricesAndDatesPipeline(filename string, db *sql.DB, pricesTable, datesTable
 	log.Println("Total errors: ", errs)
 
 	// Put dates into database.
-	for date, _ := range datesSet {
+	for date := range datesSet {
 		_, err := db.Exec(fmt.Sprintf("INSERT INTO %s (date) VALUES ($1)", datesTable), date)
 		if err != nil {
 			errs++
