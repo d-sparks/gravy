@@ -9,6 +9,11 @@
 5. `go run cmd/data/dailyprices/pipeline/main.go` (takes > 5 hours)
 6. `cat kaggle/create_indexes.sql | psql gravy`
 
+Also include the S&P500 by downloading the historical prices from [Yahoo! Finance](https://finance.yahoo.com/quote/%5EGSPC/history/).
+
+1. Put `^GSPC.csv` into `data/dailyprices/GSPC/raw`.
+2. Run `go run cmd/data/dailyprices/GSPC/pipeline/main.go`
+
 #### To restore the database from a dump:
 
 1. Install postgres and have it running on localhost.

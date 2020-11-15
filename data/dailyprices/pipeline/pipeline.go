@@ -16,9 +16,14 @@ import (
 )
 
 const (
-	pricesTable  = "dailyprices"
-	tickersTable = "tickers"
-	datesTable   = "tradingdates"
+	// PricesTable holds the daily prices.
+	PricesTable = "dailyprices"
+
+	// TickersTable is the table that has all valid tickers.
+	TickersTable = "tickers"
+
+	// DatesTable holds the valid trading dates.
+	DatesTable = "tradingdates"
 )
 
 // Pipeline populates the tickers and prices databases from files (from kaggle data).
@@ -32,15 +37,15 @@ func Pipeline(pricesFilename, tickersFilename, dbURL string) error {
 	}
 
 	// Process tickers.
-	log.Printf("Processing tickers from file `%s` to table `%s`...\n", tickersFilename, tickersTable)
-	if err := tickersPipeline(tickersFilename, db, tickersTable); err != nil {
+	log.Printf("Processing tickers from file `%s` to table `%s`...\n", tickersFilename, TickersTable)
+	if err := tickersPipeline(tickersFilename, db, TickersTable); err != nil {
 		return fmt.Errorf("Error processing tickers: `%s`", err.Error())
 	}
 	log.Println("Done processing tickers...")
 
 	// Process prices.
-	log.Printf("Processing prices from file `%s` to table `%s`...\n", pricesFilename, pricesTable)
-	if err := pricesAndDatesPipeline(pricesFilename, db, pricesTable, datesTable); err != nil {
+	log.Printf("Processing prices from file `%s` to table `%s`...\n", pricesFilename, PricesTable)
+	if err := pricesAndDatesPipeline(pricesFilename, db, PricesTable, DatesTable); err != nil {
 		return fmt.Errorf("Error processing ticks: `%s`", err.Error())
 	}
 	log.Println("Done processing prices...")
@@ -197,7 +202,7 @@ func pricesAndDatesPipeline(filename string, db *sql.DB, pricesTable, datesTable
 	return tx.Commit()
 }
 
-// For days when we don't have data on a specific stock, but we do have data in the previous and
+// InterpolateData for days when we don't have data on a specific stock, but we do have data in the previous and
 // next windows, we interpolate using the mean.
 func InterpolateData(
 	dates []string,
@@ -207,7 +212,7 @@ func InterpolateData(
 	// Get the last index of when a ticker was observed.
 	lastListingIx := map[string]int{}
 	for i := 0; i < len(dates); i++ {
-		for ticker, _ := range dateToTickers[dates[i]] {
+		for ticker := range dateToTickers[dates[i]] {
 			lastListingIx[ticker] = i
 		}
 	}
@@ -217,7 +222,7 @@ func InterpolateData(
 		tickers := dateToTickers[dates[i]]
 		missing := tickersPrev.Minus(tickers)
 
-		for ticker, _ := range missing {
+		for ticker := range missing {
 			// No need to do anything for unlisted tickers.
 			if i >= lastListingIx[ticker] {
 				continue
@@ -235,7 +240,7 @@ func InterpolateData(
 	}
 }
 
-// Assumes the stock is published at dates[lb] and dates[ub] but not between.
+// InterpolateForSymbol assumes the stock is published at dates[lb] and dates[ub] but not between.
 func InterpolateForSymbol(
 	ticker string,
 	lb int,
