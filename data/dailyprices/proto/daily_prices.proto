@@ -21,7 +21,6 @@ message DailyPrices {
   message StockPrices {
     double open = 1;
     double close = 2;
-    double adj_close = 3;
     double low = 4;
     double high = 5;
     double volume = 6;

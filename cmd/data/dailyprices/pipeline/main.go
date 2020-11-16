@@ -8,15 +8,25 @@ import (
 )
 
 var (
-	prices  = flag.String("prices", "./data/dailyprices/raw/historical_stock_prices.csv", "Stock prices CSV.")
-	tickers = flag.String("tickers", "./data/dailyprices/raw/historical_stocks.csv", "Tickers CSV.")
-	dbURL   = flag.String("db", "postgres://localhost/gravy?sslmode=disable", "Postgres DB connection string.")
+	pricesFolder = flag.String(
+		"prices_folder",
+		"./data/dailyprices/raw/daily/us/nyse stocks/1",
+		"Stock prices folder containing csvs.",
+	)
+	dbURL       = flag.String("db", "postgres://localhost/gravy?sslmode=disable", "Postgres DB connection string.")
+	exchangeStr = flag.String("exchange", "NYSE", "String representation of the exchange for these csvs.")
+	startAt     = flag.String("start_at", "", "Skip up until the specified file.")
 )
 
 func main() {
 	flag.Parse()
 
-	if err := dailypricespipeline.Pipeline(*prices, *tickers, *dbURL); err != nil {
+	exchange, err := dailypricespipeline.ParseExchange(*exchangeStr)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	if err := dailypricespipeline.Pipeline(*pricesFolder, *dbURL, exchange, *startAt); err != nil {
 		log.Fatalf(err.Error())
 	}
 }

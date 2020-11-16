@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	id   = flag.String("id", "buyandhold", "Algorithm ID.")
-	port = flag.Int("port", 17502, "Port for rpc server.")
+	id              = flag.String("id", "buyandhold", "Algorithm ID.")
+	port            = flag.Int("port", 17502, "Port for rpc server.")
+	rebalancePeriod = flag.Int("rebalance_period", 20, "Rebalance period in trading ticks/days.")
 )
 
 func main() {
@@ -27,7 +28,7 @@ func main() {
 	}
 
 	// Make server (uninitialized)
-	algorithmServer := buyandhold.New(*id)
+	algorithmServer := buyandhold.New(*id, *rebalancePeriod)
 
 	// Create grcp server and serve
 	var opts []grpc.ServerOption

@@ -74,7 +74,7 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 	// Query database.
 	rows, err := s.db.Query(
 		fmt.Sprintf(
-			"SELECT ticker, open, close, adj_close, low, high, volume FROM %s WHERE date = $1",
+			"SELECT ticker, open, close, low, high, volume FROM %s WHERE date = $1",
 			s.pricesTableName,
 		),
 		tickTime.Format("2006-01-02"),
@@ -93,7 +93,6 @@ func (s *DailyPricesServer) Get(ctx context.Context, req *dailyprices_pb.Request
 			&ticker,
 			&stockPrices.Open,
 			&stockPrices.Close,
-			&stockPrices.AdjClose,
 			&stockPrices.Low,
 			&stockPrices.High,
 			&stockPrices.Volume,

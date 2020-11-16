@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"sort"
@@ -102,7 +103,7 @@ func (s *S) GetPortfolio(
 ) (*supervisor_pb.Portfolio, error) {
 	portfolio, ok := s.portfolios[algorithmID.GetAlgorithmId()]
 	if !ok {
-		return nil, fmt.Errorf("No portfolio for algorith: `%s`", algorithmID.GetAlgorithmId())
+		return nil, fmt.Errorf("No portfolio for algorithm: `%s`", algorithmID.GetAlgorithmId())
 	}
 	return portfolio, nil
 }
@@ -132,22 +133,46 @@ func (s *S) executeAllAlgorithms(ctx context.Context, algorithmDate *timestamp_p
 	var input algorithmio_pb.Input
 	input.Timestamp = algorithmDate
 	for _, algorithm := range s.registrar.Algorithms {
-		go algorithm.Execute(ctx, &input)
+		go func() {
+			if _, err := algorithm.Execute(ctx, &input); err != nil {
+				// TODO: Don't panic.
+				log.Fatalf("Error executing algorithm: %s", err.Error())
+			}
+		}()
 	}
 	return nil
 }
 
 // logOrder logs an order to the algorithm's output file.
-func (s *S) logOrder(algorithmID string, filled bool, buySell string, volume float64, price float64, ticker string) {
+func (s *S) logOrder(
+	tradingDate *timestamp_pb.Timestamp,
+	algorithmID string,
+	filled bool,
+	buySell string,
+	volume float64,
+	price float64,
+	ticker string,
+) {
 	if !filled {
 		buySell = "(FAILED ORDER) " + buySell
 	}
-	buySell += fmt.Sprintf(" %f units of %s at %f [value: %f]\n", volume, ticker, price, volume*price)
+	buySell += fmt.Sprintf(
+		" %f units of %s at %f on %s [value: %f]\n",
+		volume,
+		ticker,
+		price,
+		ptypes.TimestampString(tradingDate),
+		volume*price,
+	)
 	s.algorithmsOut[algorithmID].WriteString(buySell)
 }
 
 // handleOrder attempts to handle order and returns true if the order is fulfilled. Does not yet support short selling.
-func (s *S) handleOrder(order *supervisor_pb.Order, dailyPrices *dailyprices_pb.DailyPrices) bool {
+func (s *S) handleOrder(
+	tradingDate *timestamp_pb.Timestamp,
+	order *supervisor_pb.Order,
+	dailyPrices *dailyprices_pb.DailyPrices,
+) bool {
 	// Check if the portfolio has enough of the stock to sell or enough USD to cover the limit price of the order.
 	algorithmID := order.GetAlgorithmId().GetAlgorithmId()
 	portfolio := s.portfolios[algorithmID]
@@ -174,13 +199,13 @@ func (s *S) handleOrder(order *supervisor_pb.Order, dailyPrices *dailyprices_pb.
 		// we know volume * price <= $USD as well.
 		portfolio.Usd -= order.GetVolume() * price
 		portfolio.Stocks[ticker] += order.GetVolume()
-		s.logOrder(algorithmID, true, "BUY", order.GetVolume(), price, ticker)
+		s.logOrder(tradingDate, algorithmID, true, "BUY", order.GetVolume(), price, ticker)
 		return true
 	} else if order.GetVolume() < 0 && price >= order.GetStop() {
 		// We checked already that we have enough stock to sell.
-		portfolio.Usd += order.GetVolume() * price
-		portfolio.Stocks[ticker] -= order.GetVolume()
-		s.logOrder(algorithmID, true, "SELL", order.GetVolume(), price, ticker)
+		portfolio.Usd -= order.GetVolume() * price
+		portfolio.Stocks[ticker] += order.GetVolume()
+		s.logOrder(tradingDate, algorithmID, true, "SELL", order.GetVolume(), price, ticker)
 		return true
 	}
 
@@ -193,16 +218,14 @@ func (s *S) fillPendingOrders(
 	ctx context.Context,
 	tradingDate *timestamp_pb.Timestamp,
 ) (*dailyprices_pb.DailyPrices, error) {
-	var pricesReq dailyprices_pb.Request
-	pricesReq.Timestamp = tradingDate
-	pricesReq.Version = 0
-	tradingPrices, err := s.registrar.DailyPrices.Get(ctx, &pricesReq)
+	pricesReq := &dailyprices_pb.Request{Timestamp: tradingDate, Version: 0}
+	tradingPrices, err := s.registrar.DailyPrices.Get(ctx, pricesReq)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting trading prices: %s", err.Error())
 	}
 	for _, order := range s.pendingOrders {
 		// TODO: Check the return value of this to see whether to continue the order into the next tick.
-		s.handleOrder(order, tradingPrices)
+		s.handleOrder(tradingDate, order, tradingPrices)
 	}
 	s.pendingOrders = []*supervisor_pb.Order{}
 	return tradingPrices, nil

@@ -64,7 +64,6 @@ func (r *R) openDailyPricesConnection(url string) error {
 // openAlgorithm attempts to open a given algorithm.
 func (r *R) openAlgorithm(spec *supervisor_pb.AlgorithmSpec) error {
 	// Connect to the algorithm server.
-	fmt.Printf("Connecting to %s at %s\n", spec.GetId().GetAlgorithmId(), spec.GetUrl())
 	opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
 	conn, err := grpc.Dial(spec.GetUrl(), opts...)
 	if err != nil {
@@ -73,9 +72,7 @@ func (r *R) openAlgorithm(spec *supervisor_pb.AlgorithmSpec) error {
 	r.algorithmConnections = append(r.algorithmConnections, conn)
 
 	// Create the client.
-	fmt.Printf("Connected intermediately to %s at %s\n", spec.GetId().GetAlgorithmId(), spec.GetUrl())
 	r.Algorithms[spec.GetId().GetAlgorithmId()] = algorithmio_pb.NewAlgorithmClient(conn)
-	fmt.Printf("Connected to %s at %s\n", spec.GetId().GetAlgorithmId(), spec.GetUrl())
 
 	return nil
 }
