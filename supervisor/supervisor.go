@@ -312,7 +312,7 @@ func (s *S) setupOutput(dir string) (closer func(), err error) {
 	sort.Strings(s.algorithmsOutOrder)
 
 	// Write headers for gravy log.
-	s.out.WriteString(strings.Join(append([]string{"date", "^GSPC"}, s.algorithmsOutOrder...), ",") + "\n")
+	s.out.WriteString(strings.Join(append([]string{"date", "SPY"}, s.algorithmsOutOrder...), ",") + "\n")
 
 	// Create closer
 	closer = func() {
@@ -340,7 +340,7 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	var cols []string = make([]string, len(s.algorithmsOutOrder)+2)
 	cols[0] = nativeTime.Format("2006-01-02")
 	cols[1] = "-"
-	if stockPrices, ok := prices.GetStockPrices()["^GSPC"]; ok {
+	if stockPrices, ok := prices.GetStockPrices()["SPY"]; ok {
 		cols[1] = fmt.Sprintf("%f", stockPrices.GetClose())
 	}
 	for i, algorithmID := range s.algorithmsOutOrder {
