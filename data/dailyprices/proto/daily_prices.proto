@@ -17,7 +17,18 @@ message Request {
   int32 version = 2;
 }
 
+// next id: 6
+message Measurements {
+  double alpha = 1;
+  double beta = 2;
+  map<int32, double> moving_averages = 3;
+}
+
+// next id: 5
 message DailyPrices {
+  google.protobuf.Timestamp timestamp = 2;
+  int32 version = 3;
+
   message StockPrices {
     double open = 1;
     double close = 2;
@@ -27,8 +38,7 @@ message DailyPrices {
   }
 
   map<string, StockPrices> stock_prices = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  int32 version = 3;
+  map<string, Measurements> measurements = 4;
 }
 
 message Range {
