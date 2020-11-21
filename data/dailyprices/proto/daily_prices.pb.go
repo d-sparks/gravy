@@ -319,6 +319,91 @@ func (x *TradingDates) GetTimestamps() []*timestamp.Timestamp {
 	return nil
 }
 
+type NewSessionRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	SimRange *Range `protobuf:"bytes,1,opt,name=sim_range,json=simRange,proto3" json:"sim_range,omitempty"`
+}
+
+func (x *NewSessionRequest) Reset() {
+	*x = NewSessionRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NewSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewSessionRequest) ProtoMessage() {}
+
+func (x *NewSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewSessionRequest.ProtoReflect.Descriptor instead.
+func (*NewSessionRequest) Descriptor() ([]byte, []int) {
+	return file_data_dailyprices_proto_daily_prices_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *NewSessionRequest) GetSimRange() *Range {
+	if x != nil {
+		return x.SimRange
+	}
+	return nil
+}
+
+type NewSessionResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *NewSessionResponse) Reset() {
+	*x = NewSessionResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NewSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewSessionResponse) ProtoMessage() {}
+
+func (x *NewSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewSessionResponse.ProtoReflect.Descriptor instead.
+func (*NewSessionResponse) Descriptor() ([]byte, []int) {
+	return file_data_dailyprices_proto_daily_prices_proto_rawDescGZIP(), []int{6}
+}
+
 type DailyPrices_StockPrices struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -334,7 +419,7 @@ type DailyPrices_StockPrices struct {
 func (x *DailyPrices_StockPrices) Reset() {
 	*x = DailyPrices_StockPrices{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[6]
+		mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -347,7 +432,7 @@ func (x *DailyPrices_StockPrices) String() string {
 func (*DailyPrices_StockPrices) ProtoMessage() {}
 
 func (x *DailyPrices_StockPrices) ProtoReflect() protoreflect.Message {
-	mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[6]
+	mi := &file_data_dailyprices_proto_daily_prices_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -472,20 +557,31 @@ var file_data_dailyprices_proto_daily_prices_proto_rawDesc = []byte{
 	0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1a,
 	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
 	0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x0a, 0x74, 0x69, 0x6d, 0x65,
-	0x73, 0x74, 0x61, 0x6d, 0x70, 0x73, 0x32, 0x87, 0x01, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x12,
-	0x37, 0x0a, 0x03, 0x47, 0x65, 0x74, 0x12, 0x14, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72,
-	0x69, 0x63, 0x65, 0x73, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x64,
-	0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2e, 0x44, 0x61, 0x69, 0x6c, 0x79,
-	0x50, 0x72, 0x69, 0x63, 0x65, 0x73, 0x22, 0x00, 0x12, 0x46, 0x0a, 0x13, 0x54, 0x72, 0x61, 0x64,
-	0x69, 0x6e, 0x67, 0x44, 0x61, 0x74, 0x65, 0x73, 0x49, 0x6e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12,
-	0x12, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2e, 0x52, 0x61,
-	0x6e, 0x67, 0x65, 0x1a, 0x19, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65,
-	0x73, 0x2e, 0x54, 0x72, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x44, 0x61, 0x74, 0x65, 0x73, 0x22, 0x00,
-	0x42, 0x41, 0x5a, 0x3f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64,
-	0x2d, 0x73, 0x70, 0x61, 0x72, 0x6b, 0x73, 0x2f, 0x67, 0x72, 0x61, 0x76, 0x79, 0x2f, 0x64, 0x61,
-	0x74, 0x61, 0x2f, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x3b, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73,
-	0x5f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x73, 0x74, 0x61, 0x6d, 0x70, 0x73, 0x22, 0x44, 0x0a, 0x11, 0x4e, 0x65, 0x77, 0x53, 0x65, 0x73,
+	0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x2f, 0x0a, 0x09, 0x73,
+	0x69, 0x6d, 0x5f, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12,
+	0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2e, 0x52, 0x61, 0x6e,
+	0x67, 0x65, 0x52, 0x08, 0x73, 0x69, 0x6d, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x22, 0x14, 0x0a, 0x12,
+	0x4e, 0x65, 0x77, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x32, 0xd8, 0x01, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x12, 0x37, 0x0a, 0x03, 0x47,
+	0x65, 0x74, 0x12, 0x14, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73,
+	0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79,
+	0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2e, 0x44, 0x61, 0x69, 0x6c, 0x79, 0x50, 0x72, 0x69, 0x63,
+	0x65, 0x73, 0x22, 0x00, 0x12, 0x4f, 0x0a, 0x0a, 0x4e, 0x65, 0x77, 0x53, 0x65, 0x73, 0x73, 0x69,
+	0x6f, 0x6e, 0x12, 0x1e, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73,
+	0x2e, 0x4e, 0x65, 0x77, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73,
+	0x2e, 0x4e, 0x65, 0x77, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x46, 0x0a, 0x13, 0x54, 0x72, 0x61, 0x64, 0x69, 0x6e, 0x67,
+	0x44, 0x61, 0x74, 0x65, 0x73, 0x49, 0x6e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x12, 0x2e, 0x64,
+	0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2e, 0x52, 0x61, 0x6e, 0x67, 0x65,
+	0x1a, 0x19, 0x2e, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2e, 0x54,
+	0x72, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x44, 0x61, 0x74, 0x65, 0x73, 0x22, 0x00, 0x42, 0x41, 0x5a,
+	0x3f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x2d, 0x73, 0x70,
+	0x61, 0x72, 0x6b, 0x73, 0x2f, 0x67, 0x72, 0x61, 0x76, 0x79, 0x2f, 0x64, 0x61, 0x74, 0x61, 0x2f,
+	0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x2f, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x3b, 0x64, 0x61, 0x69, 0x6c, 0x79, 0x70, 0x72, 0x69, 0x63, 0x65, 0x73, 0x5f, 0x70, 0x62,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -500,39 +596,44 @@ func file_data_dailyprices_proto_daily_prices_proto_rawDescGZIP() []byte {
 	return file_data_dailyprices_proto_daily_prices_proto_rawDescData
 }
 
-var file_data_dailyprices_proto_daily_prices_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_data_dailyprices_proto_daily_prices_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_data_dailyprices_proto_daily_prices_proto_goTypes = []interface{}{
 	(*Request)(nil),                 // 0: dailyprices.Request
 	(*Measurements)(nil),            // 1: dailyprices.Measurements
 	(*DailyPrices)(nil),             // 2: dailyprices.DailyPrices
 	(*Range)(nil),                   // 3: dailyprices.Range
 	(*TradingDates)(nil),            // 4: dailyprices.TradingDates
-	nil,                             // 5: dailyprices.Measurements.MovingAveragesEntry
-	(*DailyPrices_StockPrices)(nil), // 6: dailyprices.DailyPrices.StockPrices
-	nil,                             // 7: dailyprices.DailyPrices.StockPricesEntry
-	nil,                             // 8: dailyprices.DailyPrices.MeasurementsEntry
-	(*timestamp.Timestamp)(nil),     // 9: google.protobuf.Timestamp
+	(*NewSessionRequest)(nil),       // 5: dailyprices.NewSessionRequest
+	(*NewSessionResponse)(nil),      // 6: dailyprices.NewSessionResponse
+	nil,                             // 7: dailyprices.Measurements.MovingAveragesEntry
+	(*DailyPrices_StockPrices)(nil), // 8: dailyprices.DailyPrices.StockPrices
+	nil,                             // 9: dailyprices.DailyPrices.StockPricesEntry
+	nil,                             // 10: dailyprices.DailyPrices.MeasurementsEntry
+	(*timestamp.Timestamp)(nil),     // 11: google.protobuf.Timestamp
 }
 var file_data_dailyprices_proto_daily_prices_proto_depIdxs = []int32{
-	9,  // 0: dailyprices.Request.timestamp:type_name -> google.protobuf.Timestamp
-	5,  // 1: dailyprices.Measurements.moving_averages:type_name -> dailyprices.Measurements.MovingAveragesEntry
-	9,  // 2: dailyprices.DailyPrices.timestamp:type_name -> google.protobuf.Timestamp
-	7,  // 3: dailyprices.DailyPrices.stock_prices:type_name -> dailyprices.DailyPrices.StockPricesEntry
-	8,  // 4: dailyprices.DailyPrices.measurements:type_name -> dailyprices.DailyPrices.MeasurementsEntry
-	9,  // 5: dailyprices.Range.lb:type_name -> google.protobuf.Timestamp
-	9,  // 6: dailyprices.Range.ub:type_name -> google.protobuf.Timestamp
-	9,  // 7: dailyprices.TradingDates.timestamps:type_name -> google.protobuf.Timestamp
-	6,  // 8: dailyprices.DailyPrices.StockPricesEntry.value:type_name -> dailyprices.DailyPrices.StockPrices
-	1,  // 9: dailyprices.DailyPrices.MeasurementsEntry.value:type_name -> dailyprices.Measurements
-	0,  // 10: dailyprices.Data.Get:input_type -> dailyprices.Request
-	3,  // 11: dailyprices.Data.TradingDatesInRange:input_type -> dailyprices.Range
-	2,  // 12: dailyprices.Data.Get:output_type -> dailyprices.DailyPrices
-	4,  // 13: dailyprices.Data.TradingDatesInRange:output_type -> dailyprices.TradingDates
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	11, // 0: dailyprices.Request.timestamp:type_name -> google.protobuf.Timestamp
+	7,  // 1: dailyprices.Measurements.moving_averages:type_name -> dailyprices.Measurements.MovingAveragesEntry
+	11, // 2: dailyprices.DailyPrices.timestamp:type_name -> google.protobuf.Timestamp
+	9,  // 3: dailyprices.DailyPrices.stock_prices:type_name -> dailyprices.DailyPrices.StockPricesEntry
+	10, // 4: dailyprices.DailyPrices.measurements:type_name -> dailyprices.DailyPrices.MeasurementsEntry
+	11, // 5: dailyprices.Range.lb:type_name -> google.protobuf.Timestamp
+	11, // 6: dailyprices.Range.ub:type_name -> google.protobuf.Timestamp
+	11, // 7: dailyprices.TradingDates.timestamps:type_name -> google.protobuf.Timestamp
+	3,  // 8: dailyprices.NewSessionRequest.sim_range:type_name -> dailyprices.Range
+	8,  // 9: dailyprices.DailyPrices.StockPricesEntry.value:type_name -> dailyprices.DailyPrices.StockPrices
+	1,  // 10: dailyprices.DailyPrices.MeasurementsEntry.value:type_name -> dailyprices.Measurements
+	0,  // 11: dailyprices.Data.Get:input_type -> dailyprices.Request
+	5,  // 12: dailyprices.Data.NewSession:input_type -> dailyprices.NewSessionRequest
+	3,  // 13: dailyprices.Data.TradingDatesInRange:input_type -> dailyprices.Range
+	2,  // 14: dailyprices.Data.Get:output_type -> dailyprices.DailyPrices
+	6,  // 15: dailyprices.Data.NewSession:output_type -> dailyprices.NewSessionResponse
+	4,  // 16: dailyprices.Data.TradingDatesInRange:output_type -> dailyprices.TradingDates
+	14, // [14:17] is the sub-list for method output_type
+	11, // [11:14] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_data_dailyprices_proto_daily_prices_proto_init() }
@@ -601,7 +702,31 @@ func file_data_dailyprices_proto_daily_prices_proto_init() {
 				return nil
 			}
 		}
+		file_data_dailyprices_proto_daily_prices_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NewSessionRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 		file_data_dailyprices_proto_daily_prices_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NewSessionResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_data_dailyprices_proto_daily_prices_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DailyPrices_StockPrices); i {
 			case 0:
 				return &v.state
@@ -620,7 +745,7 @@ func file_data_dailyprices_proto_daily_prices_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_data_dailyprices_proto_daily_prices_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

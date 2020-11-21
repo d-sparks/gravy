@@ -33,7 +33,7 @@ func main() {
 	}
 
 	// Make daily prices server (connect to DB)
-	dailyPricesServer, err := dailyprices.NewDailyPricesServer(*postgresURL, *dailyPricesTable, *tradingDatesTable)
+	dailyPricesServer, err := dailyprices.NewServer(*postgresURL, *dailyPricesTable, *tradingDatesTable)
 	if err != nil {
 		log.Fatalf("Error constructing server: %s", err.Error())
 	}

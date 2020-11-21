@@ -18,6 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DataClient interface {
 	Get(ctx context.Context, in *Request, opts ...grpc.CallOption) (*DailyPrices, error)
+	NewSession(ctx context.Context, in *NewSessionRequest, opts ...grpc.CallOption) (*NewSessionResponse, error)
 	TradingDatesInRange(ctx context.Context, in *Range, opts ...grpc.CallOption) (*TradingDates, error)
 }
 
@@ -38,6 +39,15 @@ func (c *dataClient) Get(ctx context.Context, in *Request, opts ...grpc.CallOpti
 	return out, nil
 }
 
+func (c *dataClient) NewSession(ctx context.Context, in *NewSessionRequest, opts ...grpc.CallOption) (*NewSessionResponse, error) {
+	out := new(NewSessionResponse)
+	err := c.cc.Invoke(ctx, "/dailyprices.Data/NewSession", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *dataClient) TradingDatesInRange(ctx context.Context, in *Range, opts ...grpc.CallOption) (*TradingDates, error) {
 	out := new(TradingDates)
 	err := c.cc.Invoke(ctx, "/dailyprices.Data/TradingDatesInRange", in, out, opts...)
@@ -52,6 +62,7 @@ func (c *dataClient) TradingDatesInRange(ctx context.Context, in *Range, opts ..
 // for forward compatibility
 type DataServer interface {
 	Get(context.Context, *Request) (*DailyPrices, error)
+	NewSession(context.Context, *NewSessionRequest) (*NewSessionResponse, error)
 	TradingDatesInRange(context.Context, *Range) (*TradingDates, error)
 	mustEmbedUnimplementedDataServer()
 }
@@ -62,6 +73,9 @@ type UnimplementedDataServer struct {
 
 func (UnimplementedDataServer) Get(context.Context, *Request) (*DailyPrices, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedDataServer) NewSession(context.Context, *NewSessionRequest) (*NewSessionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewSession not implemented")
 }
 func (UnimplementedDataServer) TradingDatesInRange(context.Context, *Range) (*TradingDates, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TradingDatesInRange not implemented")
@@ -97,6 +111,24 @@ func _Data_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Data_NewSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServer).NewSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dailyprices.Data/NewSession",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServer).NewSession(ctx, req.(*NewSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Data_TradingDatesInRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Range)
 	if err := dec(in); err != nil {
@@ -122,6 +154,10 @@ var _Data_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _Data_Get_Handler,
+		},
+		{
+			MethodName: "NewSession",
+			Handler:    _Data_NewSession_Handler,
 		},
 		{
 			MethodName: "TradingDatesInRange",

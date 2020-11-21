@@ -9,6 +9,8 @@ package dailyprices;
 service Data {
   rpc Get(Request) returns (DailyPrices) {}
 
+  rpc NewSession(NewSessionRequest) returns (NewSessionResponse) {}
+
   rpc TradingDatesInRange(Range) returns (TradingDates) {}
 }
 
@@ -48,4 +50,13 @@ message Range {
 
 message TradingDates {
   repeated google.protobuf.Timestamp timestamps = 1;
+}
+
+message NewSessionRequest {
+  Range sim_range = 1;
+  // TODO: Add other modes/configuration here.
+}
+
+message NewSessionResponse {
+
 }

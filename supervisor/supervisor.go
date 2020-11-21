@@ -353,6 +353,18 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	return nil
 }
 
+// initializePricesServer tells the prices server to start over with tracking correlations etc.
+func (s *S) initializePricesServer(ctx context.Context, input *supervisor_pb.SynchronousDailySimInput) error {
+	newSessionRequest := dailyprices_pb.NewSessionRequest{
+		SimRange: &dailyprices_pb.Range{
+			Lb: input.GetStart(),
+			Ub: input.GetEnd(),
+		},
+	}
+	_, err := s.registrar.DailyPrices.NewSession(ctx, &newSessionRequest)
+	return err
+}
+
 // SynchronousDailySim kicks off a synchronous daily sim.
 func (s *S) SynchronousDailySim(
 	ctx context.Context,
@@ -376,6 +388,11 @@ func (s *S) SynchronousDailySim(
 		return nil, fmt.Errorf("Error creating log file: %s", err.Error())
 	}
 	defer closer()
+
+	// Initialize the prices server.
+	if err = s.initializePricesServer(ctx, input); err != nil {
+		return nil, fmt.Errorf("Error initializing prices server: %s", err.Error())
+	}
 
 	// Get trading dates in range.
 	tradingDates, err := s.getTradingDatesInRange(ctx, input)
