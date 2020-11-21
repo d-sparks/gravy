@@ -1,5 +1,7 @@
 package covariance
 
+import "fmt"
+
 // Covariance implements this streaming algorithm for covariance I found on Wikipedia:
 //
 // def online_covariance(data1, data2):
@@ -26,17 +28,21 @@ type C struct {
 }
 
 // New creates a new covariance from an initial observation. Panics if these numbers aren't positive.
-func New(x float64, y float64) *C {
-	if x <= 0.0 || y <= 0.0 {
-		panic("Can't track relative covariance starting at 0.0")
-	}
-	c := C{normx: x, normy: y}
-	c.Observe(x, y)
-	return &c
+func New() *C {
+	return &C{}
 }
 
 // Observe observes two values if the observation hasn't been recorded at this time.
-func (c *C) Observe(x float64, y float64) {
+func (c *C) Observe(x float64, y float64) error {
+	// Record first valid observation.
+	if c.n == 0.0 {
+		if x <= 0.0 || y <= 0.0 {
+			return fmt.Errorf("Cannot start tracking covariance from 0.0")
+		}
+		c.normx = x
+		c.normy = y
+	}
+
 	// Update covariance.
 	c.n++
 	dx := ((x / c.normx) - c.meanxnorm)
@@ -44,6 +50,8 @@ func (c *C) Observe(x float64, y float64) {
 	c.meanxnorm += dx / c.n
 	c.meanynorm += dy / c.n
 	c.c += dx * dy
+
+	return nil
 }
 
 // Value returns the current covariance.
