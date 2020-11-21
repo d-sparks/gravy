@@ -77,5 +77,8 @@ func (c *C) RelativeValue() float64 {
 
 // UncorrectedRelativeValue returns the relative covariance without Bessel's correction.
 func (c *C) UncorrectedRelativeValue() float64 {
+	if c.n <= 0 {
+		return c.c
+	}
 	return c.c / c.n
 }

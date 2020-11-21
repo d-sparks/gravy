@@ -9,7 +9,7 @@ type V struct {
 
 // New creates a new variance.
 func New() *V {
-	return &{c: covariance.New()}
+	return &V{c: covariance.New()}
 }
 
 // Observe observes a new value. Returns error if the first value is 0.0.
@@ -22,3 +22,17 @@ func (v *V) Value() float64 {
 	return v.c.Value()
 }
 
+// UncorrectedValue returns the value without Bessel's correction.
+func (v *V) UncorrectedValue() float64 {
+	return v.c.UncorrectedValue()
+}
+
+// RelativeValue returns the relative variance.
+func (v *V) RelativeValue() float64 {
+	return v.c.RelativeValue()
+}
+
+// UncorrectedRelativeValue returns the relative variance without Bessel's correction.
+func (v *V) UncorrectedRelativeValue() float64 {
+	return v.c.UncorrectedRelativeValue()
+}
