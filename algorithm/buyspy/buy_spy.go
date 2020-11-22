@@ -71,12 +71,12 @@ func (b *BuySPY) Execute(ctx context.Context, input *algorithmio_pb.Input) (*alg
 
 	req := dailyprices_pb.Request{Timestamp: input.GetTimestamp(), Version: 0}
 
-	if !b.invested {
-		portfolio, err := b.registrar.Supervisor.GetPortfolio(ctx, b.algorithmID)
-		if err != nil {
-			return nil, fmt.Errorf("Error getting portfolio in `%s`: %s", b.id, err.Error())
-		}
+	portfolio, err := b.registrar.Supervisor.GetPortfolio(ctx, b.algorithmID)
+	if err != nil {
+		return nil, fmt.Errorf("Error getting portfolio in `%s`: %s", b.id, err.Error())
+	}
 
+	if !b.invested || portfolio.GetUsd() > 500.0 {
 		dailyPrices, err := b.registrar.DailyPrices.Get(ctx, &req)
 		if err != nil {
 			return nil, fmt.Errorf("Error getting daily prices in `%s`: %s", b.id, err.Error())
