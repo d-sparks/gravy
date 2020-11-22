@@ -11,8 +11,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/d-sparks/gravy/algorithm"
 	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
+	"github.com/d-sparks/gravy/data/alpha"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
+	"github.com/d-sparks/gravy/data/mean"
 	"github.com/d-sparks/gravy/gravy"
 	"github.com/d-sparks/gravy/registrar"
 	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
@@ -45,13 +48,17 @@ type S struct {
 
 	// This is the source of truth. If trading live, S is in charge of keeping these up to date with the broker or
 	// exchange.
-	portfolios map[string]*supervisor_pb.Portfolio
+	portfolios    map[string]*supervisor_pb.Portfolio
+	alpha         map[string]*alpha.Rolling
+	mean          map[string]*mean.Rolling
+	meanReturn    map[string]*mean.Rolling
+	benchmarkMean *mean.Rolling
 
 	// Pending orders. For intraday, we may want orders to persist across ticks.
 	pendingOrders []*supervisor_pb.Order
 
 	// A channel for algorithms to signal that they are done.
-	doneWorking chan struct{}
+	doneWorking map[string]chan struct{}
 
 	// Current trading mode.
 	tradingMode TradingMode
@@ -69,7 +76,6 @@ type S struct {
 func New(tradingMode TradingMode) (*S, error) {
 	var s S
 
-	s.doneWorking = make(chan struct{})
 	s.tradingMode = tradingMode
 
 	return &s, nil
@@ -132,13 +138,13 @@ func (s *S) getTradingDatesInRange(
 func (s *S) executeAllAlgorithms(ctx context.Context, algorithmDate *timestamp_pb.Timestamp) error {
 	var input algorithmio_pb.Input
 	input.Timestamp = algorithmDate
-	for _, algorithm := range s.registrar.Algorithms {
-		go func() {
-			if _, err := algorithm.Execute(ctx, &input); err != nil {
+	for _, alg := range s.registrar.Algorithms {
+		go func(alg algorithm.A) {
+			if _, err := alg.Execute(ctx, &input); err != nil {
 				// TODO: Don't panic.
 				log.Fatalf("Error executing algorithm: %s", err.Error())
 			}
-		}()
+		}(alg)
 	}
 	return nil
 }
@@ -312,7 +318,19 @@ func (s *S) setupOutput(dir string) (closer func(), err error) {
 	sort.Strings(s.algorithmsOutOrder)
 
 	// Write headers for gravy log.
-	s.out.WriteString(strings.Join(append([]string{"date", "SPY"}, s.algorithmsOutOrder...), ",") + "\n")
+	cols := []string{"date"}
+	for _, algorithmID := range s.algorithmsOutOrder {
+		cols = append(
+			cols,
+			[]string{
+				algorithmID,
+				algorithmID + "_alpha",
+				algorithmID + "_beta",
+				algorithmID + "_perf",
+			}...,
+		)
+	}
+	s.out.WriteString(strings.Join(cols, ",") + "\n")
 
 	// Create closer
 	closer = func() {
@@ -337,14 +355,17 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	}
 
 	// Get columns.
-	var cols []string = make([]string, len(s.algorithmsOutOrder)+2)
+	var cols []string = make([]string, 4*len(s.algorithmsOutOrder)+1)
 	cols[0] = nativeTime.Format("2006-01-02")
 	cols[1] = "0.0"
 	if stockPrices, ok := prices.GetStockPrices()["SPY"]; ok {
 		cols[1] = fmt.Sprintf("%f", stockPrices.GetClose())
 	}
 	for i, algorithmID := range s.algorithmsOutOrder {
-		cols[i+2] = fmt.Sprintf("%f", gravy.PortfolioValue(s.portfolios[algorithmID], prices))
+		cols[4*i+1] = fmt.Sprintf("%f", gravy.PortfolioValue(s.portfolios[algorithmID], prices))
+		cols[4*i+2] = fmt.Sprintf("%f", s.alpha[algorithmID].Alpha())
+		cols[4*i+3] = fmt.Sprintf("%f", s.alpha[algorithmID].Beta())
+		cols[4*i+4] = fmt.Sprintf("%f", s.meanReturn[algorithmID].Value(252))
 	}
 
 	// Log
@@ -365,6 +386,43 @@ func (s *S) initializePricesServer(ctx context.Context, input *supervisor_pb.Syn
 	return err
 }
 
+// setupMetrics initializes the mean, mean return, and alpha fields.
+func (s *S) setupMetrics() {
+	s.mean = map[string]*mean.Rolling{}
+	s.meanReturn = map[string]*mean.Rolling{}
+	s.alpha = map[string]*alpha.Rolling{}
+	s.benchmarkMean = mean.NewRolling(252)
+	for _, algorithmID := range s.algorithmsOutOrder {
+		s.mean[algorithmID] = mean.NewRolling(252)
+		s.meanReturn[algorithmID] = mean.NewRolling(252)
+		s.alpha[algorithmID] = alpha.NewRolling(s.meanReturn[algorithmID], s.benchmarkMean, 252, 0.0)
+	}
+}
+
+// updateMetrics updates the mean, mean return, and alpha metrics for each algorithm.
+func (s *S) updateMetrics(prices *dailyprices_pb.DailyPrices) {
+	// Record benchmark.
+	s.benchmarkMean.Observe(prices.GetBenchmark())
+
+	// Record each algorithms metrics.
+	for _, algorithmID := range s.algorithmsOutOrder {
+		// Record value.
+		val0 := s.mean[algorithmID].OldestValue()
+		val := gravy.PortfolioValue(s.portfolios[algorithmID], prices)
+		s.mean[algorithmID].Observe(val)
+
+		// Record return.
+		perf := 0.0
+		if val0 > 0.0 {
+			perf = (val - val0) / val0
+		}
+		s.meanReturn[algorithmID].Observe(perf)
+
+		// Record alpha.
+		s.alpha[algorithmID].Observe(perf, prices.GetBenchmark())
+	}
+}
+
 // SynchronousDailySim kicks off a synchronous daily sim.
 func (s *S) SynchronousDailySim(
 	ctx context.Context,
@@ -381,6 +439,13 @@ func (s *S) SynchronousDailySim(
 	defer func() {
 		s.portfolios = nil
 	}()
+
+	// Set up channels for each algorithm.
+	s.doneWorking = map[string]chan struct{}{}
+	for algorithmID := range s.registrar.Algorithms {
+		s.doneWorking[algorithmID] = make(chan struct{})
+		defer close(s.doneWorking[algorithmID])
+	}
 
 	// Create output files.
 	closer, err := s.setupOutput(input.GetOutputDir())
@@ -400,6 +465,9 @@ func (s *S) SynchronousDailySim(
 		return nil, fmt.Errorf("Error getting trading dates: %s", err.Error())
 	}
 
+	// Set up the metrics.
+	s.setupMetrics()
+
 	// Simulate over the trading dates.
 	for i := 1; i < len(tradingDates.GetTimestamps()); i++ {
 		// The algorithms will have the prices from the previous tick, but trades are executed against prices
@@ -415,8 +483,8 @@ func (s *S) SynchronousDailySim(
 		// Wait for each algorithm to be done, up to a max timeout. TODO: handle deadlock gracefully. For
 		// example have another goroutine that periodically checks if we're timed out, and if so, closes the
 		// channel.
-		for range s.registrar.Algorithms {
-			<-s.doneWorking
+		for algorithmID := range s.registrar.Algorithms {
+			<-s.doneWorking[algorithmID]
 		}
 
 		// Try to fulfill pending orders.
@@ -428,6 +496,9 @@ func (s *S) SynchronousDailySim(
 		// Check if any stocks have been delisted. If they have, close out the position for algorithms holding
 		// that stock.
 		s.closeDelistedPositions(ctx, algorithmDate, tradingPrices)
+
+		// Update metrics.
+		s.updateMetrics(tradingPrices)
 
 		// Log for this tick.
 		s.logTick(tradingDate, tradingPrices)
@@ -442,7 +513,7 @@ func (s *S) DoneTrading(
 	ctx context.Context,
 	algorithmID *supervisor_pb.AlgorithmId,
 ) (*supervisor_pb.DoneTradingResponse, error) {
-	s.doneWorking <- struct{}{}
+	s.doneWorking[algorithmID.GetAlgorithmId()] <- struct{}{}
 	return &supervisor_pb.DoneTradingResponse{}, nil
 }
 

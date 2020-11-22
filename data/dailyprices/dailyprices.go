@@ -98,6 +98,7 @@ func (s *Server) updateAveragesForTicker(
 	// If this is the benchmark asset, it is the benchmark. (And the given benchmark ought to be 0.0.)
 	if ticker == "SPY" {
 		benchmarkPerf = perf
+		dailyPrices.Benchmark = perf
 	}
 
 	// Assumes the benchmark rollingAverageReturns has been updated already.

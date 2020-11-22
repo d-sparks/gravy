@@ -35,8 +35,7 @@ func New(algorithmID string, rebalancePeriod int) *BuyAndHold {
 	var b BuyAndHold
 
 	b.id = algorithmID
-	b.algorithmID = &supervisor_pb.AlgorithmId{}
-	b.algorithmID.AlgorithmId = b.id
+	b.algorithmID = &supervisor_pb.AlgorithmId{AlgorithmId: b.id}
 	b.invested = false
 	b.rebalancePeriod = rebalancePeriod
 
@@ -126,38 +125,39 @@ func (b *BuyAndHold) InvestApproximatelyUniformly(
 func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (*algorithmio_pb.Output, error) {
 	fmt.Printf("Excuting algorithm on %s\n", ptypes.TimestampString(input.GetTimestamp()))
 
-	portfolio, err := b.registrar.Supervisor.GetPortfolio(ctx, b.algorithmID)
-	if err != nil {
-		return nil, fmt.Errorf("Error getting portfolio in `%s`: %s", b.id, err.Error())
-	}
-
-	req := dailyprices_pb.Request{Timestamp: input.GetTimestamp(), Version: 0}
-	dailyPrices, err := b.registrar.DailyPrices.Get(ctx, &req)
-	if err != nil {
-		return nil, fmt.Errorf("Error getting daily prices in `%s`: %s", b.id, err.Error())
-	}
-
 	if !b.invested {
+		portfolio, err := b.registrar.Supervisor.GetPortfolio(ctx, b.algorithmID)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting portfolio in `%s`: %s", b.id, err.Error())
+		}
+
+		req := dailyprices_pb.Request{Timestamp: input.GetTimestamp(), Version: 0}
+		dailyPrices, err := b.registrar.DailyPrices.Get(ctx, &req)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting daily prices in `%s`: %s", b.id, err.Error())
+		}
+
 		orders := b.InvestApproximatelyUniformly(portfolio, dailyPrices)
 		for _, order := range orders {
 			if _, err := b.registrar.Supervisor.PlaceOrder(ctx, order); err != nil {
 				return nil, fmt.Errorf(
-					"Error placing supplemental order from `%s`: %s",
-					b.id,
-					err.Error(),
+					"Error placing order from `%s`: %s", b.id, err.Error(),
 				)
 			}
 		}
 		b.invested = true
 		b.nextRebalance = b.rebalancePeriod
 	} else if b.nextRebalance == 0 {
+		portfolio, err := b.registrar.Supervisor.GetPortfolio(ctx, b.algorithmID)
+		if err != nil {
+			return nil, fmt.Errorf("Error getting portfolio in `%s`: %s", b.id, err.Error())
+		}
+
 		orders := gravy.SellEverythingMarketOrder(b.algorithmID, portfolio)
 		for _, order := range orders {
 			if _, err := b.registrar.Supervisor.PlaceOrder(ctx, order); err != nil {
 				return nil, fmt.Errorf(
-					"Error placing supplemental order from `%s`: %s",
-					b.id,
-					err.Error(),
+					"Error placing order from `%s`: %s", b.id, err.Error(),
 				)
 			}
 		}
@@ -166,7 +166,7 @@ func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (
 		b.nextRebalance--
 	}
 
-	if _, err = b.registrar.Supervisor.DoneTrading(ctx, b.algorithmID); err != nil {
+	if _, err := b.registrar.Supervisor.DoneTrading(ctx, b.algorithmID); err != nil {
 		return nil, fmt.Errorf("Error calling DoneTrading from `%s`: %s", b.id, err.Error())
 	}
 

@@ -41,6 +41,7 @@ message DailyPrices {
 
   map<string, StockPrices> stock_prices = 1;
   map<string, Measurements> measurements = 4;
+  double benchmark = 5;  // SPY benchmark, 252 trading day performance.
 }
 
 message Range {

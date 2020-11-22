@@ -13,6 +13,8 @@ type Rolling struct {
 	r     float64
 	perf  float64
 	bench float64
+
+	observations int // make sure we have two observations before returning a beta.
 }
 
 // NewRolling alpha / beta tracker for a prescribed number of days.
@@ -31,10 +33,15 @@ func (r *Rolling) Observe(x float64, m float64) {
 
 	r.perf = x
 	r.bench = m
+
+	r.observations++
 }
 
 // Beta returns the beta.
 func (r *Rolling) Beta() float64 {
+	if r.observations < 2 {
+		return 0.0
+	}
 	return r.cov.Value() / r.varm.Value()
 }
 
