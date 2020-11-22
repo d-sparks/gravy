@@ -9,6 +9,8 @@ package dailyprices;
 service Data {
   rpc Get(Request) returns (DailyPrices) {}
 
+  rpc NewSession(NewSessionRequest) returns (NewSessionResponse) {}
+
   rpc TradingDatesInRange(Range) returns (TradingDates) {}
 }
 
@@ -17,19 +19,28 @@ message Request {
   int32 version = 2;
 }
 
+// next id: 6
+message Measurements {
+  double alpha = 1;
+  double beta = 2;
+  map<int32, double> moving_averages = 3;
+}
+
+// next id: 5
 message DailyPrices {
+  google.protobuf.Timestamp timestamp = 2;
+  int32 version = 3;
+
   message StockPrices {
     double open = 1;
     double close = 2;
-    double adj_close = 3;
     double low = 4;
     double high = 5;
     double volume = 6;
   }
 
   map<string, StockPrices> stock_prices = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  int32 version = 3;
+  map<string, Measurements> measurements = 4;
 }
 
 message Range {
@@ -39,4 +50,13 @@ message Range {
 
 message TradingDates {
   repeated google.protobuf.Timestamp timestamps = 1;
+}
+
+message NewSessionRequest {
+  Range sim_range = 1;
+  // TODO: Add other modes/configuration here.
+}
+
+message NewSessionResponse {
+
 }

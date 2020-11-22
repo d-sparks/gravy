@@ -18,7 +18,7 @@ func TestInvestApproximatelyUniformlyHappyPath(t *testing.T) {
 	}
 	portfolio.Usd = 1000.0
 
-	b := New()
+	b := New("test", 30.0)
 	orders := b.InvestApproximatelyUniformly(&portfolio, &dailyPrices)
 
 	assert.Equal(t, 1, len(orders))
@@ -39,7 +39,7 @@ func TestInvestApproximatelyUniformlyTwoStocks(t *testing.T) {
 	}
 	portfolio.Usd = 1000.0
 
-	b := New()
+	b := New("test", 30.0)
 	orders := b.InvestApproximatelyUniformly(&portfolio, &dailyPrices)
 
 	expectedVolume := map[string]float64{"MSFT": 49.0, "GOOG": 25.0}
@@ -70,13 +70,13 @@ func TestInvestApproximatelyUniformlyManyStocks(t *testing.T) {
 	}
 	portfolio.Usd = 1000.0
 
-	b := New()
+	b := New("test", 30.0)
 	orders := b.InvestApproximatelyUniformly(&portfolio, &dailyPrices)
 
 	expectedVolume := map[string]float64{
 		"APPL": 1.0,
 		"FB":   20.0,
-		"FORD": 144.0,
+		"FORD": 141.0,
 		"GM":   282.0,
 		"GOOG": 7.0,
 		"MSFT": 14.0,
@@ -92,7 +92,7 @@ func TestInvestApproximatelyUniformlyManyStocks(t *testing.T) {
 		"NVDA": 9.09,
 	}
 
-	assert.Equal(t, 10, len(orders))
+	assert.Equal(t, 7, len(orders))
 	volume := map[string]float64{}
 	limit := map[string]float64{}
 	totalLimit := 0.0
@@ -104,5 +104,5 @@ func TestInvestApproximatelyUniformlyManyStocks(t *testing.T) {
 
 	assert.Equal(t, expectedVolume, volume)
 	assert.Equal(t, expectedLimit, limit)
-	assert.Less(t, 999.0, totalLimit)
+	assert.Less(t, 996.0, totalLimit)
 }

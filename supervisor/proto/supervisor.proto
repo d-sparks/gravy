@@ -38,11 +38,16 @@ message Portfolio {
   double usd = 2;
 }
 
+message AlgorithmSpec { 
+  AlgorithmId id = 1;
+  string url = 2;
+}
+
 message SynchronousDailySimInput {
   google.protobuf.Timestamp start = 1;
   google.protobuf.Timestamp end = 2;
-  repeated AlgorithmId algorithms = 3;
-  string output_dir = 4;
+  string output_dir = 3;
+  repeated AlgorithmSpec algorithms = 4;
 }
 
 message SynchronousDailySimOutput {

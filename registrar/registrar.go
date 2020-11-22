@@ -4,35 +4,17 @@ import (
 	"fmt"
 
 	"github.com/d-sparks/gravy/algorithm"
-	buyandhold_pb "github.com/d-sparks/gravy/algorithm/buyandhold/proto"
+	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
 	"google.golang.org/grpc"
 )
 
 const (
+	// TODO: These should probably also be in the input to the sim commands.
 	supervisorURL  = "localhost:17500"
 	dailypricesURL = "localhost:17501"
 )
-
-// AlgorithmEnum is an enumeration of the algorithms known to the registrar.
-type AlgorithmEnum int
-
-const (
-	// BuyAndHold algorithm.
-	BuyAndHold AlgorithmEnum = iota
-)
-
-// AlgorithmSpec holds the URL and name of an algorithm.
-type AlgorithmSpec struct {
-	ID  string
-	URL string
-}
-
-// AlgorithmSpecs holds an algorithmSpec for each enumerated algorithm.
-var AlgorithmSpecs = map[AlgorithmEnum]*AlgorithmSpec{
-	BuyAndHold: &AlgorithmSpec{"buyandhold", "localhost:17502"},
-}
 
 // R is the registrar. Has clients for all the grpc services comprising gravy.
 type R struct {
@@ -80,48 +62,27 @@ func (r *R) openDailyPricesConnection(url string) error {
 }
 
 // openAlgorithm attempts to open a given algorithm.
-func (r *R) openAlgorithm(algorithmEnum AlgorithmEnum) error {
-	// Get spec.
-	spec, ok := AlgorithmSpecs[algorithmEnum]
-	if !ok {
-		return fmt.Errorf("Unknown algorithm %d", algorithmEnum)
-	}
-
+func (r *R) openAlgorithm(spec *supervisor_pb.AlgorithmSpec) error {
 	// Connect to the algorithm server.
 	opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
-	conn, err := grpc.Dial(spec.URL, opts...)
+	conn, err := grpc.Dial(spec.GetUrl(), opts...)
 	if err != nil {
-		return fmt.Errorf("Error connecting to algorithm %d: %s", algorithmEnum, err.Error())
+		return fmt.Errorf("Error connecting to algorithm %s: %s", spec.GetId().GetAlgorithmId(), err.Error())
 	}
 	r.algorithmConnections = append(r.algorithmConnections, conn)
 
 	// Create the client.
-	switch algorithmEnum {
-	case BuyAndHold:
-		r.Algorithms[spec.ID] = buyandhold_pb.NewBuyAndHoldClient(conn)
-	}
+	r.Algorithms[spec.GetId().GetAlgorithmId()] = algorithmio_pb.NewAlgorithmClient(conn)
 
 	return nil
 }
 
 // InitAlgorithms initializes a set of algorithsm.
-func (r *R) InitAlgorithms(algorithms ...AlgorithmEnum) error {
+func (r *R) InitAlgorithms(algorithms ...*supervisor_pb.AlgorithmSpec) error {
 	r.CloseAllAlgorithms()
 	r.Algorithms = map[string]algorithm.A{}
-	for _, algorithmEnum := range algorithms {
-		if err := r.openAlgorithm(algorithmEnum); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// InitAllAlgorithms initializes all known algorithms.
-func (r *R) InitAllAlgorithms() error {
-	r.CloseAllAlgorithms()
-	r.Algorithms = map[string]algorithm.A{}
-	for algorithmEnum := range AlgorithmSpecs {
-		if err := r.openAlgorithm(algorithmEnum); err != nil {
+	for _, algorithmSpec := range algorithms {
+		if err := r.openAlgorithm(algorithmSpec); err != nil {
 			return err
 		}
 	}

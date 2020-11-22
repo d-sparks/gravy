@@ -6,6 +6,10 @@ import "google/protobuf/timestamp.proto";
 
 package algorithmio;
 
+service Algorithm {
+  rpc Execute(algorithmio.Input) returns (algorithmio.Output) {}
+}
+
 message Input {
   google.protobuf.Timestamp timestamp = 1;
   int32 version = 2;

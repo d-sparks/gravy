@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 
-	buyandhold_pb "github.com/d-sparks/gravy/algorithm/buyandhold/proto"
 	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	"github.com/d-sparks/gravy/gravy"
@@ -14,27 +13,32 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
-const algorithmEnum = registrar.BuyAndHold
-
-// BuyAndHold is a simple algorithm that tries to buy a fairly diversified portfolio and holds forever. If stocks are
-// delisted, the proceeds are invested in an attempt to extend diversity.
+// BuyAndHold is a simple algorithm that tries to buy a fairly diversified portfolio and holds. It sells everything and
+// rebalances periodically.
 type BuyAndHold struct {
-	buyandhold_pb.UnimplementedBuyAndHoldServer
+	algorithmio_pb.UnimplementedAlgorithmServer
 
+	// Algorithm ID (usually "buyandhold" unless multiple are running)
+	id          string
 	algorithmID *supervisor_pb.AlgorithmId
 
 	invested bool
+
+	nextRebalance   int
+	rebalancePeriod int
 
 	registrar *registrar.R
 }
 
 // New creates a new, uninitialized BuyAndHold algorithm.
-func New() *BuyAndHold {
+func New(algorithmID string, rebalancePeriod int) *BuyAndHold {
 	var b BuyAndHold
 
+	b.id = algorithmID
 	b.algorithmID = &supervisor_pb.AlgorithmId{}
-	b.algorithmID.AlgorithmId = registrar.AlgorithmSpecs[algorithmEnum].ID
+	b.algorithmID.AlgorithmId = b.id
 	b.invested = false
+	b.rebalancePeriod = rebalancePeriod
 
 	return &b
 }
@@ -70,16 +74,16 @@ func (b *BuyAndHold) InvestApproximatelyUniformly(
 	//
 	// Thus, the investment is safe.
 	for ticker, stockPrices := range prices.GetStockPrices() {
-		var order supervisor_pb.Order
-		order.AlgorithmId = b.algorithmID
-		order.Ticker = ticker
-		order.Volume = math.Floor(target / stockPrices.GetClose())
-		if order.GetVolume() == 0.0 {
+		volume := math.Floor(target / stockPrices.GetClose())
+		if volume == 0.0 {
 			continue
 		}
-		order.Limit = 1.01 * stockPrices.GetClose()
-		totalLimitOfOrders += order.GetVolume() * order.GetLimit()
-		orders = append(orders, &order)
+		limit := 1.01 * stockPrices.GetClose()
+		orders = append(orders, &supervisor_pb.Order{
+			AlgorithmId: b.algorithmID, Ticker: ticker, Volume: volume, Limit: limit,
+		})
+		targetInvestments[ticker] = volume * limit
+		totalLimitOfOrders += volume * limit
 	}
 
 	// Continue investing until we can't get closer to a uniform investment.
@@ -107,13 +111,12 @@ func (b *BuyAndHold) InvestApproximatelyUniformly(
 			break
 		}
 		// Place an order for a nextTicker
-		var order supervisor_pb.Order
-		order.AlgorithmId = b.algorithmID
-		order.Ticker = nextTicker
-		order.Volume = 1.0
-		order.Limit = 1.01 * nextPrice
-		totalLimitOfOrders += order.GetVolume() * order.GetLimit()
-		orders = append(orders, &order)
+		limit := 1.01 * nextPrice
+		orders = append(orders, &supervisor_pb.Order{
+			AlgorithmId: b.algorithmID, Ticker: nextTicker, Volume: 1.0, Limit: limit,
+		})
+		targetInvestments[nextTicker] += limit
+		totalLimitOfOrders += 1.0 * limit
 	}
 
 	return
@@ -125,23 +128,13 @@ func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (
 
 	portfolio, err := b.registrar.Supervisor.GetPortfolio(ctx, b.algorithmID)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"Error getting portfolio in `%s`: %s",
-			registrar.AlgorithmSpecs[algorithmEnum].ID,
-			err.Error(),
-		)
+		return nil, fmt.Errorf("Error getting portfolio in `%s`: %s", b.id, err.Error())
 	}
 
-	var req dailyprices_pb.Request
-	req.Timestamp = input.GetTimestamp()
-	req.Version = 0
+	req := dailyprices_pb.Request{Timestamp: input.GetTimestamp(), Version: 0}
 	dailyPrices, err := b.registrar.DailyPrices.Get(ctx, &req)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"Error getting daily prices in `%s`: %s",
-			registrar.AlgorithmSpecs[algorithmEnum].ID,
-			err.Error(),
-		)
+		return nil, fmt.Errorf("Error getting daily prices in `%s`: %s", b.id, err.Error())
 	}
 
 	if !b.invested {
@@ -150,19 +143,31 @@ func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (
 			if _, err := b.registrar.Supervisor.PlaceOrder(ctx, order); err != nil {
 				return nil, fmt.Errorf(
 					"Error placing supplemental order from `%s`: %s",
-					registrar.AlgorithmSpecs[algorithmEnum].ID,
+					b.id,
 					err.Error(),
 				)
 			}
 		}
 		b.invested = true
+		b.nextRebalance = b.rebalancePeriod
+	} else if b.nextRebalance == 0 {
+		orders := gravy.SellEverythingMarketOrder(b.algorithmID, portfolio)
+		for _, order := range orders {
+			if _, err := b.registrar.Supervisor.PlaceOrder(ctx, order); err != nil {
+				return nil, fmt.Errorf(
+					"Error placing supplemental order from `%s`: %s",
+					b.id,
+					err.Error(),
+				)
+			}
+		}
+		b.invested = false
+	} else {
+		b.nextRebalance--
 	}
 
 	if _, err = b.registrar.Supervisor.DoneTrading(ctx, b.algorithmID); err != nil {
-		return nil, fmt.Errorf(
-			"Error calling DoneTrading from `%s`: %s",
-			registrar.AlgorithmSpecs[algorithmEnum].ID,
-			err.Error())
+		return nil, fmt.Errorf("Error calling DoneTrading from `%s`: %s", b.id, err.Error())
 	}
 
 	return &algorithmio_pb.Output{}, nil
