@@ -110,10 +110,10 @@ func pricesAndDatesPipeline(filename string, db *sql.DB, pricesTable, datesTable
 		}
 		dates[date] = struct{}{}
 		query := fmt.Sprintf(
-			"INSERT INTO %s (ticker, exchange, open, close, low, high, volume, date)\n",
+			"INSERT INTO %s (ticker, exchange, open, close, low, high, volume, date)",
 			pricesTable,
 		)
-		query += "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+		query += "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING"
 		if _, err = db.Exec(
 			query,
 			strings.ReplaceAll(row[0], ".US", ""),
@@ -138,11 +138,13 @@ func pricesAndDatesPipeline(filename string, db *sql.DB, pricesTable, datesTable
 	for date := range dates {
 		if _, err := db.Exec(
 			fmt.Sprintf(
-				"INSERT INTO %s (date, %s) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+				"INSERT INTO %s (date, %s) VALUES ($1, $2) ON CONFLICT (date) DO UPDATE SET %s = $3",
 				datesTable,
+				strings.ToLower(exchange.String()),
 				strings.ToLower(exchange.String()),
 			),
 			date,
+			true,
 			true,
 		); err != nil {
 			return fmt.Errorf("Error inserting date %s: %s", date.Format("2006-01-02"), err.Error())
@@ -170,9 +172,6 @@ func Pipeline(pricesFolder string, dbURL string, exchange *Exchange, startAt str
 
 	// Process prices.
 	for _, fileInfo := range files {
-		if fileInfo.Name() < startAt {
-			continue
-		}
 		filename := path.Join(pricesFolder, fileInfo.Name())
 		log.Printf("Processing prices from file `%s` to table `%s`...\n", filename, PricesTable)
 		if err := pricesAndDatesPipeline(filename, db, PricesTable, DatesTable, exchange); err != nil {

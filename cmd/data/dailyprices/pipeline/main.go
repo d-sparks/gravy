@@ -10,7 +10,7 @@ import (
 var (
 	dbURL         = flag.String("db", "postgres://localhost/gravy?sslmode=disable", "Postgres DB connection string.")
 	startAtFile   = flag.String("start_at_file", "", "Skip up until the specified file.")
-	startAtFolder = flag.String("start_at_folder", "nasdaq1", "Skip up until the specified folder.")
+	startAtFolder = flag.String("start_at_folder", "", "Skip up until the specified folder.")
 )
 
 type folderSpec struct {
@@ -39,7 +39,7 @@ func main() {
 		}
 		maybeStartAtFile := ""
 		if folderID == *startAtFolder {
-			maybeStartAtFile = *startAtFolder
+			maybeStartAtFile = *startAtFile
 		}
 
 		if folder.exchange == dailypricespipeline.NYSE {

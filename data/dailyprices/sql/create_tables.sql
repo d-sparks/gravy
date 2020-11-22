@@ -14,5 +14,7 @@ CREATE TABLE tradingdates (
   nyse BOOL,
   nyse_etf BOOL,
   nasdaq BOOL,
-  nasdaq_etf BOOL
+  nasdaq_etf BOOL,
+  nysemkt BOOL,
+  nysemkt_etf BOOL
 );
