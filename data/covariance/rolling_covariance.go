@@ -1,22 +1,22 @@
 package covariance
 
 import (
-	"github.com/d-sparks/gravy/data/movingaverage"
+	"github.com/d-sparks/gravy/data/mean"
 )
 
 // Rolling tracks a rolling covariance. Can track multiple numbers of days.
 type Rolling struct {
-	cov *movingaverage.M
-	mux *movingaverage.M
-	muy *movingaverage.M
+	cov *mean.Rolling
+	mux *mean.Rolling
+	muy *mean.Rolling
 
 	n    float64
 	days int
 }
 
 // NewRolling makes a new rolling covariance for a prescribed number of days.
-func NewRolling(mux *movingaverage.M, muy *movingaverage.M, days int) *Rolling {
-	return &Rolling{cov: movingaverage.New(days), mux: mux, muy: muy, days: days}
+func NewRolling(mux *mean.Rolling, muy *mean.Rolling, days int) *Rolling {
+	return &Rolling{cov: mean.NewRolling(days), mux: mux, muy: muy, days: days}
 }
 
 // Observe observes two values and updates the rolling covariance. This does not update the underlying rolling

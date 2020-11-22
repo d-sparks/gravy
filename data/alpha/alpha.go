@@ -12,59 +12,65 @@ import (
 // Approximate number of trading days per year.
 const daysPerYear float64 = 252.0
 
-// An A tracks alpha and beta.
-type A struct {
+// Streaming tracks alpha and beta for a stream of data. (Relatively low memory overhead.)
+type Streaming struct {
 	x0 float64
 	m0 float64
 	r  float64
 	n  float64
 
-	rx *mean.M
-	rm *mean.M
+	rx *mean.Streaming
+	rm *mean.Streaming
 
-	cov  *covariance.C
-	varm *variance.V
+	cov  *covariance.Streaming
+	varm *variance.Streaming
 }
 
 // New creates a new alpha/beta tracker.
-func New(r float64) *A {
-	return &A{r: r, rx: mean.New(), rm: mean.New(), cov: covariance.New(), varm: variance.New()}
+func NewStreaming(r float64) *Streaming {
+	return &Streaming{
+		r:    r,
+		rx:   mean.NewStreaming(),
+		rm:   mean.NewStreaming(),
+		cov:  covariance.NewStreaming(),
+		varm: variance.NewStreaming(),
+	}
 }
 
 // Observe observes the value and market value. Returns an error if either is 0.0 on the first observation. x is the
 // value of the asset and m is the market/benchmark.
-func (a *A) Observe(x float64, m float64) error {
+func (s *Streaming) Observe(x float64, m float64) error {
 	// Initialize if necessary.
-	if a.n == 0.0 {
+	if s.n == 0.0 {
 		if x <= 0.0 || m <= 0.0 {
 			return fmt.Errorf("Cannot begin tracking alpha at 0.0")
 		}
-		a.x0 = x
-		a.m0 = m
+		s.x0 = x
+		s.m0 = m
 	}
 
 	// Update statistics.
-	a.n++
-	a.cov.Observe(x, m)
-	a.varm.Observe(m)
-	a.rx.Observe(math.Pow(x/a.x0, daysPerYear/a.n))
-	a.rm.Observe(math.Pow(m/a.m0, daysPerYear/a.n))
+	s.n++
+	s.cov.Observe(x, m)
+	s.varm.Observe(m)
+	s.rx.Observe(math.Pow(x/s.x0, daysPerYear/s.n))
+	s.rm.Observe(math.Pow(m/s.m0, daysPerYear/s.n))
 
 	return nil
 }
 
 // Beta returns the beta. Only valid after making an observation.
-func (a *A) Beta() float64 {
-	if a.n <= 0.0 {
+func (s *Streaming) Beta() float64 {
+	if s.n <= 0.0 {
 		return 0.0
 	}
-	return a.cov.Value() / a.varm.Value()
+	return s.cov.Value() / s.varm.Value()
 }
 
-// Alpha returns the alpha. Only valid after making an observation.
-func (a *A) Alpha() float64 {
-	if a.n <= 0.0 {
+// Alpha returns the alphs. Only valid after making an observation.
+func (s *Streaming) Alpha() float64 {
+	if s.n <= 0.0 {
 		return 0.0
 	}
-	return a.rx.Value() - a.r - a.Beta()*(a.rm.Value()-a.r)
+	return s.rx.Value() - s.r - s.Beta()*(s.rm.Value()-s.r)
 }

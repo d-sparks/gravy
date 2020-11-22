@@ -2,7 +2,7 @@ package variance
 
 import (
 	"github.com/d-sparks/gravy/data/covariance"
-	"github.com/d-sparks/gravy/data/movingaverage"
+	"github.com/d-sparks/gravy/data/mean"
 )
 
 // Rolling tracks the variance.
@@ -11,7 +11,7 @@ type Rolling struct {
 }
 
 // NewRolling creates a new variance.
-func NewRolling(mux *movingaverage.M, days int) *Rolling {
+func NewRolling(mux *mean.Rolling, days int) *Rolling {
 	return &Rolling{c: covariance.NewRolling(mux, mux, days)}
 }
 

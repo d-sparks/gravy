@@ -3,15 +3,15 @@ package covariance
 import (
 	"testing"
 
-	"github.com/d-sparks/gravy/data/movingaverage"
+	"github.com/d-sparks/gravy/data/mean"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestRollingCovariance tests the rolling covariance implementation against direct calculations.
 func TestRollingCovariance(t *testing.T) {
 	// Instantiate classes.
-	mux := movingaverage.New(20)
-	muy := movingaverage.New(20)
+	mux := mean.NewRolling(20)
+	muy := mean.NewRolling(20)
 	cov := NewRolling(mux, muy, 20)
 
 	// Make some data.
@@ -30,8 +30,8 @@ func TestRollingCovariance(t *testing.T) {
 	}
 
 	// Calculate directly
-	mux = movingaverage.New(40)
-	muy = movingaverage.New(40)
+	mux = mean.NewRolling(40)
+	muy = mean.NewRolling(40)
 	sumSqrs := 0.0
 	for i := 0; i < 40; i++ {
 		mux.Observe(x[i])
@@ -48,8 +48,8 @@ func TestRollingCovariance(t *testing.T) {
 // TestRollingCovarianceUnderfull tests the rolling covariance implementation against direct calculations.
 func TestRollingCovarianceUnderfull(t *testing.T) {
 	// Instantiate classes.
-	mux := movingaverage.New(20)
-	muy := movingaverage.New(20)
+	mux := mean.NewRolling(20)
+	muy := mean.NewRolling(20)
 	cov := NewRolling(mux, muy, 20)
 
 	// Make some data.
@@ -68,8 +68,8 @@ func TestRollingCovarianceUnderfull(t *testing.T) {
 	}
 
 	// Calculate directly
-	mux = movingaverage.New(40)
-	muy = movingaverage.New(40)
+	mux = mean.NewRolling(40)
+	muy = mean.NewRolling(40)
 	sumSqrs := 0.0
 	for i := 0; i < 5; i++ {
 		mux.Observe(x[i])

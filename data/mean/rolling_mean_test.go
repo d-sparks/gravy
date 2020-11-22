@@ -1,4 +1,4 @@
-package movingaverage
+package mean
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 
 // TestMovingAverageThreeAverages tests a moving average covering 1, 2, and 5 day spacing including overflow.
 func TestMovingAverageThreeAverages(t *testing.T) {
-	m := New(1, 2, 5)
+	m := NewRolling(1, 2, 5)
 
 	// Insert a first element and check identical averages.
 	m.Observe(17.0)
@@ -39,10 +39,10 @@ func TestMovingAverageThreeAverages(t *testing.T) {
 	assert.Equal(t, (512.0+513.0+514.0+515.0+516.0)/5.0, m.Value(5))
 }
 
-// TestMovingAverageTrackNewValues tests the case of tracking a new timeframe by asking for a value that is not yet
+// TestMovingAverageTrackNewRollingValues tests the case of tracking a new timeframe by asking for a value that is not yet
 // tracked.
-func TestMovingAverageTrackNewValues(t *testing.T) {
-	m := New(3)
+func TestMovingAverageTrackNewRollingValues(t *testing.T) {
+	m := NewRolling(3)
 
 	// Insert numerous values and ask for a smaller and much larger timeframe.
 	for i := 50; i < 55; i++ {

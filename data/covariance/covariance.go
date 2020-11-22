@@ -17,7 +17,7 @@ import "fmt"
 //     # Bessel's correction for sample variance
 //     sample_covar = C / (n - 1)
 //
-type C struct {
+type Streaming struct {
 	meanxnorm float64
 	meanynorm float64
 	n         float64
@@ -27,58 +27,58 @@ type C struct {
 	normy float64
 }
 
-// New creates a new covariance from an initial observation. Panics if these numbers aren't positive.
-func New() *C {
-	return &C{}
+// NewStreaming creates a new covariance.
+func NewStreaming() *Streaming {
+	return &Streaming{}
 }
 
 // Observe observes two values if the observation hasn't been recorded at this time.
-func (c *C) Observe(x float64, y float64) error {
+func (s *Streaming) Observe(x float64, y float64) error {
 	// Record first valid observation.
-	if c.n == 0.0 {
+	if s.n == 0.0 {
 		if x <= 0.0 || y <= 0.0 {
 			return fmt.Errorf("Cannot start tracking covariance from 0.0")
 		}
-		c.normx = x
-		c.normy = y
+		s.normx = x
+		s.normy = y
 	}
 
 	// Update covariance.
-	c.n++
-	dx := ((x / c.normx) - c.meanxnorm)
-	dy := ((y / c.normy) - c.meanynorm)
-	c.meanxnorm += dx / c.n
-	c.meanynorm += dy / c.n
-	c.c += dx * dy
+	s.n++
+	dx := ((x / s.normx) - s.meanxnorm)
+	dy := ((y / s.normy) - s.meanynorm)
+	s.meanxnorm += dx / s.n
+	s.meanynorm += dy / s.n
+	s.c += dx * dy
 
 	return nil
 }
 
 // Value returns the current covariance.
-func (c *C) Value() float64 {
-	if c.n <= 1 {
-		return c.c * c.normx * c.normy
+func (s *Streaming) Value() float64 {
+	if s.n <= 1 {
+		return s.c * s.normx * s.normy
 	}
-	return c.c * c.normx * c.normy / (c.n - 1.0)
+	return s.c * s.normx * s.normy / (s.n - 1.0)
 }
 
 // UncorrectedValue returns the value without Bessel's correction.
-func (c *C) UncorrectedValue() float64 {
-	return c.c * c.normx * c.normy / c.n
+func (s *Streaming) UncorrectedValue() float64 {
+	return s.c * s.normx * s.normy / s.n
 }
 
 // RelativeValue returns the relative covariance.
-func (c *C) RelativeValue() float64 {
-	if c.n <= 1 {
-		return c.c
+func (s *Streaming) RelativeValue() float64 {
+	if s.n <= 1 {
+		return s.c
 	}
-	return c.c / (c.n - 1.0)
+	return s.c / (s.n - 1.0)
 }
 
 // UncorrectedRelativeValue returns the relative covariance without Bessel's correction.
-func (c *C) UncorrectedRelativeValue() float64 {
-	if c.n <= 0 {
-		return c.c
+func (s *Streaming) UncorrectedRelativeValue() float64 {
+	if s.n <= 0 {
+		return s.c
 	}
-	return c.c / c.n
+	return s.c / s.n
 }

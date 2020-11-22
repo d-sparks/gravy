@@ -2,6 +2,7 @@ package alpha
 
 import (
 	"github.com/d-sparks/gravy/data/covariance"
+	"github.com/d-sparks/gravy/data/mean"
 	"github.com/d-sparks/gravy/data/variance"
 )
 
@@ -12,25 +13,24 @@ type Rolling struct {
 	r     float64
 	perf  float64
 	bench float64
-	n     int
-	days  int
 }
 
 // NewRolling alpha / beta tracker for a prescribed number of days.
-func NewRolling(days int, r float64) *Rolling {
-	return &Rolling{cov: covariance.NewRolling(days), varm: variance.NewRolling(days), r: r, days: days}
+func NewRolling(mux *mean.Rolling, mum *mean.Rolling, days int, r float64) *Rolling {
+	return &Rolling{
+		cov:  covariance.NewRolling(mux, mum, days),
+		varm: variance.NewRolling(mum, days),
+		r:    r,
+	}
 }
 
 // Observe observes a new value of the asset and benchmark prices.
-func (r *Rolling) Observe(x, m, mux, mum, x0, m0, mux0, mum0 float64) {
-	r.cov.Observe(x, m, mux, mum, x0, m0, mux0, mum0)
-	r.varm.Observe(m, mum, m0, mum0)
+func (r *Rolling) Observe(x float64, m float64) {
+	r.cov.Observe(x, m)
+	r.varm.Observe(m)
 
-	r.perf = (x - x0) / x0
-	r.bench = (m - m0) / m0
-	if r.n < r.days {
-		r.n++
-	}
+	r.perf = x
+	r.bench = m
 }
 
 // Beta returns the beta.

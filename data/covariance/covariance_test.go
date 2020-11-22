@@ -9,7 +9,7 @@ import (
 
 // TestCovariance tests the streaming covariance against a direct two-pass calculation.
 func TestCovariance(t *testing.T) {
-	covariance := New()
+	covariance := NewStreaming()
 
 	// Make two data sets.
 	x := make([]float64, 10000)

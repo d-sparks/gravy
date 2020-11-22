@@ -1,23 +1,23 @@
 package mean
 
-// M tracks the approximate mean of a stream of data.
-type M struct {
+// Streaming tracks the approximate mean of a stream of data.
+type Streaming struct {
 	mu float64
 	n  float64
 }
 
-// New returns an empty A.
-func New() *M {
-	return &M{}
+// NewStreaming returns an empty mean.
+func NewStreaming() *Streaming {
+	return &Streaming{}
 }
 
 // Observe observes a new value.
-func (m *M) Observe(x float64) {
-	m.mu = ((m.n * m.mu) + x) / (m.n + 1.0)
-	m.n += 1.0
+func (s *Streaming) Observe(x float64) {
+	s.mu = ((s.n * s.mu) + x) / (s.n + 1.0)
+	s.n += 1.0
 }
 
 // Value returns the mean.
-func (m *M) Value() float64 {
-	return m.mu
+func (s *Streaming) Value() float64 {
+	return s.mu
 }

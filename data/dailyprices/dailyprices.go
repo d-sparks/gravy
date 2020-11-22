@@ -130,6 +130,9 @@ func (s *Server) updateAlphasForSymbol(
 	}
 
 	// Update alphas.
+	if ticker == "MSFT" {
+		fmt.Println("Updating ", x, spy, mu, spyMu, x0, spy0, mu0, spyMu0)
+	}
 	s.alpha[ticker].Observe(x, spy, mu, spyMu, x0, spy0, mu0, spyMu0)
 
 	// Return values.

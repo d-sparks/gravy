@@ -10,7 +10,7 @@ import (
 func TestMean(t *testing.T) {
 	xs := []float64{3.0, 4.0, 5.0, 17.0, -1.0, 600.0}
 	sum := 0.0
-	mu := New()
+	mu := NewStreaming()
 
 	for _, x := range xs {
 		sum += x
