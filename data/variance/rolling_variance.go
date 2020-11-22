@@ -1,6 +1,9 @@
 package variance
 
-import "github.com/d-sparks/gravy/data/covariance"
+import (
+	"github.com/d-sparks/gravy/data/covariance"
+	"github.com/d-sparks/gravy/data/movingaverage"
+)
 
 // Rolling tracks the variance.
 type Rolling struct {
@@ -8,21 +11,16 @@ type Rolling struct {
 }
 
 // NewRolling creates a new variance.
-func NewRolling(days int) *Rolling {
-	return &Rolling{c: covariance.NewRolling(days)}
+func NewRolling(mux *movingaverage.M, days int) *Rolling {
+	return &Rolling{c: covariance.NewRolling(mux, mux, days)}
 }
 
-// Observe observes a new value. Returns error if the first value is 0.0.
-func (v *Rolling) Observe(x, mux, x0, mux0 float64) {
-	v.c.Observe(x, x, mux, mux, x0, x0, mux0, mux0)
+// Observe observes a new value. Does not update the underlying moving averages, those should be updated separately.
+func (v *Rolling) Observe(x float64) {
+	v.c.Observe(x, x)
 }
 
 // Value returns the value of the variance.
 func (v *Rolling) Value() float64 {
 	return v.c.Value()
-}
-
-// UncorrectedValue returns the value without Bessel's correction.
-func (v *Rolling) UncorrectedValue() float64 {
-	return v.c.UncorrectedValue()
 }

@@ -1,40 +1,37 @@
 package covariance
 
-// Rolling captures a rolling covariance.
+import (
+	"github.com/d-sparks/gravy/data/movingaverage"
+)
+
+// Rolling tracks a rolling covariance. Can track multiple numbers of days.
 type Rolling struct {
-	sumSqrs float64
-	n       int
-	days    int
+	cov *movingaverage.M
+	mux *movingaverage.M
+	muy *movingaverage.M
+
+	n    float64
+	days int
 }
 
 // NewRolling makes a new rolling covariance for a prescribed number of days.
-func NewRolling(days int) *Rolling {
-	return &Rolling{days: days}
+func NewRolling(mux *movingaverage.M, muy *movingaverage.M, days int) *Rolling {
+	return &Rolling{cov: movingaverage.New(days), mux: mux, muy: muy, days: days}
 }
 
-// Observe observes two values and updates the rolling covariance. Must pass in the values and averages of x, y that are
-// falling off the back.
-func (r *Rolling) Observe(x, y, mux, muy, x0, y0, mux0, muy0 float64) {
-	r.sumSqrs += (x - mux) * (y - muy)
-	if r.n >= r.days {
-		r.sumSqrs -= (x0 - mux0) * (y0 - muy0)
-	} else {
+// Observe observes two values and updates the rolling covariance. This does not update the underlying rolling
+// averages and you should update them before updating the covariance.
+func (r *Rolling) Observe(x float64, y float64) {
+	r.cov.Observe((x - r.mux.Value(r.days)) * (y - r.muy.Value(r.days)))
+	if r.n < float64(r.days) {
 		r.n++
 	}
 }
 
-// Value of the sample covariance.
+// Value of the sample covariance (includes Bessel's correction).
 func (r *Rolling) Value() float64 {
-	if r.n <= 1 {
+	if r.n <= 1.0 {
 		return 0.0
 	}
-	return r.sumSqrs / (float64(r.n) - 1.0)
-}
-
-// ValueUncorrected is the sample covariance without Bessel's correction.
-func (r *Rolling) UncorrectedValue() float64 {
-	if r.n <= 0 {
-		return 0.0
-	}
-	return r.sumSqrs / float64(r.n)
+	return r.cov.Value(r.days) * r.n / (r.n - 1)
 }
