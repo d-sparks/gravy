@@ -10,7 +10,7 @@ import (
 
 	"github.com/d-sparks/gravy/data/alpha"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
-	"github.com/d-sparks/gravy/data/movingaverage"
+	"github.com/d-sparks/gravy/data/mean"
 	"github.com/golang/protobuf/ptypes"
 	_ "github.com/lib/pq"
 )
@@ -29,20 +29,21 @@ type Server struct {
 	cache     map[int32]map[time.Time]*dailyprices_pb.DailyPrices
 	times     []time.Time
 	timeIndex map[time.Time]int
-	i         int
 
-	// Store 15, 35, and 252 day rolling averages. (~20, 50, 365 days worth of trading days.)
-	rollingAverages map[int]map[string]*movingaverage.Rolling
-
-	// 252 day rolling average from 252 days ago.
-	oldAverages map[string]*movingaverage.Rolling
-
-	// First time at which the given stock was seen.
-	firstSeen map[string]time.Time
-	lastSeen  map[string]time.Time
+	// Track 15, 35, and 252 day rolling averages. (~20, 50, 365 days worth of trading days.)
+	rollingAverages       map[string]*mean.Rolling
+	rollingAverageReturns map[string]*mean.Rolling
 
 	// Alpha for each ticker.
 	alpha map[string]*alpha.Rolling
+
+	// Benchmark for the market. (Currently SPY)
+	benchmark *mean.Rolling
+
+	// First seen time index for each asset.
+	firstSeen    map[string]time.Time
+	lastSeen     map[string]time.Time
+	missingDates map[string]map[time.Time]struct{}
 }
 
 // NewServer creates an empty daily prices server.
@@ -71,108 +72,85 @@ func (s *Server) Close() {
 	s.db.Close()
 }
 
-// updateAveragesForSymbol updates for a single tick.
-func (s *Server) updateAveragesForSymbol(tickTime time.Time, ticker string, dailyPrices *dailyprices_pb.DailyPrices) {
-	tickIx := s.timeIndex[tickTime]
-	price := dailyPrices.GetStockPrices()[ticker].GetClose()
-
-	// Get old prices.
-	observations := tickIx - s.timeIndex[s.firstSeen[ticker]]
-	oldPrices := map[int]float64{}
-	for _, daysAgo := range []int{15, 35, 252, 504} {
-		if observations >= daysAgo {
-			oldPrices[daysAgo] = s.cache[0][s.times[tickIx-daysAgo]].GetStockPrices()[ticker].GetClose()
-		} else {
-			oldPrices[daysAgo] = 0.0
-		}
-	}
-
-	// Update oldAverages if we've observed this stock for 252 days.
-	if observations >= 252 {
-		// On the 252 day, start tracking the year old moving averages.
-		if observations == 252 {
-			s.oldAverages[ticker] = movingaverage.NewRolling(252)
-		}
-		s.oldAverages[ticker].Observe(oldPrices[252], oldPrices[504])
-	}
-
-	// Update rolling averages.
-	s.rollingAverages[15][ticker].Observe(price, oldPrices[15])
-	s.rollingAverages[35][ticker].Observe(price, oldPrices[35])
-	s.rollingAverages[252][ticker].Observe(price, oldPrices[252])
-
-	// Record the output
-	dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{MovingAverages: map[int32]float64{}}
-	dailyPrices.Measurements[ticker].MovingAverages[15] = s.rollingAverages[15][ticker].Value()
-	dailyPrices.Measurements[ticker].MovingAverages[35] = s.rollingAverages[35][ticker].Value()
-	dailyPrices.Measurements[ticker].MovingAverages[252] = s.rollingAverages[252][ticker].Value()
-}
-
-// updateAlphasForSymbol updates for a single tick.
-func (s *Server) updateAlphasForSymbol(
+// updateAveragesForTicker updates the averages and alpha and returns the relative performance.
+func (s *Server) updateAveragesForTicker(
 	tickTime time.Time,
 	ticker string,
-	spy float64,
-	spy0 float64,
-	spyMu float64,
-	spyMu0 float64,
+	benchmarkPerf float64,
 	dailyPrices *dailyprices_pb.DailyPrices,
-) {
-	// Get asset data.
-	x := dailyPrices.GetStockPrices()[ticker].GetClose()
-	mu := s.rollingAverages[252][ticker].Value()
-	x0 := 0.0
-	mu0 := 0.0
-	tickIx := s.timeIndex[tickTime]
-	if observations := tickIx - s.timeIndex[s.firstSeen[ticker]]; observations >= 252 {
-		x0 = s.cache[0][s.times[tickIx-252]].GetStockPrices()[ticker].GetClose()
-		mu0 = s.oldAverages[ticker].Value()
+) float64 {
+	// Get the new price.
+	price := 0.0
+	if p, ok := dailyPrices.GetStockPrices()[ticker]; ok {
+		price = p.GetClose()
 	}
 
-	// Update alphas.
-	if ticker == "MSFT" {
-		fmt.Println("Updating ", x, spy, mu, spyMu, x0, spy0, mu0, spyMu0)
+	// Get relative performance.
+	perf := 0.0
+	if price0 := s.rollingAverages[ticker].OldestValue(); price0 > 0.0 {
+		perf = (price - price0) / price0
 	}
-	s.alpha[ticker].Observe(x, spy, mu, spyMu, x0, spy0, mu0, spyMu0)
 
-	// Return values.
+	// Update rolling average.
+	s.rollingAverages[ticker].Observe(price)
+	s.rollingAverageReturns[ticker].Observe(perf)
+
+	// If this is the benchmark asset, it is the benchmark. (And the given benchmark ought to be 0.0.)
+	if ticker == "SPY" {
+		benchmarkPerf = perf
+	}
+
+	// Assumes the benchmark rollingAverageReturns has been updated already.
+	s.alpha[ticker].Observe(perf, benchmarkPerf)
+
+	// Update dailyPrices proto.
+	dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{MovingAverages: map[int32]float64{
+		15:  s.rollingAverages[ticker].Value(15),
+		35:  s.rollingAverages[ticker].Value(35),
+		252: s.rollingAverages[ticker].Value(252),
+	}}
 	dailyPrices.Measurements[ticker].Alpha = s.alpha[ticker].Alpha()
 	dailyPrices.Measurements[ticker].Beta = s.alpha[ticker].Beta()
+
+	return perf
 }
 
 // updateAverages updates the various tracked rolling averages at the given time. Also updates the given prices pointer.
-func (s *Server) updateAverages(tickTime time.Time, dailyPrices *dailyprices_pb.DailyPrices) {
+func (s *Server) updateAverages(tickTime time.Time, dailyPrices *dailyprices_pb.DailyPrices) error {
+	// Initialize measurements that will be populated.
+	dailyPrices.Measurements = map[string]*dailyprices_pb.Measurements{}
+
 	// Update firstSeen if this is the first time seeing this ticker.
 	for ticker := range dailyPrices.GetStockPrices() {
 		if _, ok := s.firstSeen[ticker]; !ok {
-			s.firstSeen[ticker] = tickTime
-			s.rollingAverages[15][ticker] = movingaverage.NewRolling(15)
-			s.rollingAverages[35][ticker] = movingaverage.NewRolling(35)
-			s.rollingAverages[252][ticker] = movingaverage.NewRolling(252)
-			s.alpha[ticker] = alpha.NewRolling(252, 0.0)
+			s.rollingAverages[ticker] = mean.NewRolling(15, 35, 252)
+			s.rollingAverageReturns[ticker] = mean.NewRolling(15, 35, 252)
 		}
 	}
 
-	// Update averages.
-	dailyPrices.Measurements = map[string]*dailyprices_pb.Measurements{}
-	for ticker := range s.firstSeen {
-		s.updateAveragesForSymbol(tickTime, ticker, dailyPrices)
+	// If this is the first day, find and track the benchmark (SPY).
+	if tickTime == s.times[0] {
+		ok := true
+		if s.benchmark, ok = s.rollingAverageReturns["SPY"]; !ok {
+			return fmt.Errorf("Error: Could not find market benchmark.")
+		}
 	}
 
-	// Get SPY data for benchmark.
-	spy := dailyPrices.GetStockPrices()["SPY"].GetClose()
-	spyMu := s.rollingAverages[252]["SPY"].Value()
-	spy0 := 0.0
-	spyMu0 := 0.0
-	if oldIx := s.timeIndex[tickTime] - 252; oldIx >= 0 {
-		spy0 = s.cache[0][s.times[oldIx]].GetStockPrices()["SPY"].GetClose()
-		spyMu0 = s.oldAverages["SPY"].Value()
+	// Now create alphas if necessary.
+	for ticker := range dailyPrices.GetStockPrices() {
+		if _, ok := s.firstSeen[ticker]; !ok {
+			s.firstSeen[ticker] = tickTime
+			s.alpha[ticker] = alpha.NewRolling(s.rollingAverageReturns[ticker], s.benchmark, 252, 0.0)
+		}
 	}
 
-	// Calculate alphas.
+	// Update averages first for SPY, the benchmark, as it is necessary for the comparisons that are made to it.
+	benchmarkPerf := s.updateAveragesForTicker(tickTime, "SPY", 0.0, dailyPrices)
 	for ticker := range s.firstSeen {
-		s.updateAlphasForSymbol(tickTime, ticker, spy, spy0, spyMu, spyMu0, dailyPrices)
+		s.updateAveragesForTicker(tickTime, ticker, benchmarkPerf, dailyPrices)
 	}
+
+	return nil
 }
 
 // Get implements the get endpoint for dailyprices_pb.DataServer.
@@ -229,7 +207,9 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 	}
 
 	// Update averages.
-	s.updateAverages(tickTime, &dailyPrices)
+	if err = s.updateAverages(tickTime, &dailyPrices); err != nil {
+		return nil, fmt.Errorf("Error updating averages: %s", err.Error())
+	}
 
 	// Stamp, cache, and return.
 	dailyPrices.Timestamp = req.GetTimestamp()
@@ -246,8 +226,6 @@ func (s *Server) NewSession(
 	ctx context.Context,
 	req *dailyprices_pb.NewSessionRequest,
 ) (*dailyprices_pb.NewSessionResponse, error) {
-	s.i = 0
-
 	// Get trading dates for entire session.
 	dates, err := s.TradingDatesInRange(ctx, req.GetSimRange())
 	if err != nil {
@@ -264,15 +242,13 @@ func (s *Server) NewSession(
 	}
 
 	// Reset averages.
-	s.rollingAverages = map[int]map[string]*movingaverage.Rolling{
-		15:  map[string]*movingaverage.Rolling{},
-		35:  map[string]*movingaverage.Rolling{},
-		252: map[string]*movingaverage.Rolling{},
-	}
-	s.oldAverages = map[string]*movingaverage.Rolling{}
+	s.rollingAverages = map[string]*mean.Rolling{}
+	s.rollingAverageReturns = map[string]*mean.Rolling{}
 
 	// Reset first seen times.
 	s.firstSeen = map[string]time.Time{}
+	s.lastSeen = map[string]time.Time{}
+	s.missingDates = map[string]map[time.Time]struct{}{}
 
 	// Reset alpha
 	s.alpha = map[string]*alpha.Rolling{}

@@ -339,7 +339,7 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	// Get columns.
 	var cols []string = make([]string, len(s.algorithmsOutOrder)+2)
 	cols[0] = nativeTime.Format("2006-01-02")
-	cols[1] = "-"
+	cols[1] = "0.0"
 	if stockPrices, ok := prices.GetStockPrices()["SPY"]; ok {
 		cols[1] = fmt.Sprintf("%f", stockPrices.GetClose())
 	}

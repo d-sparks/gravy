@@ -71,3 +71,18 @@ func TestMovingAverageTrackNewRollingValues(t *testing.T) {
 	assert.Equal(t, (13.0+14.0+15.0+16.0+17.0+18.0+19.0)/7.0, m.Value(7))
 	assert.Equal(t, (13.0+14.0+15.0+16.0+17.0+18.0+19.0)/7.0, m.Value(100))
 }
+
+// TestOldestValue checks that the oldest value helper works.
+func TestOldestValue(t *testing.T) {
+	m := NewRolling(5)
+
+	// Insert a first element and check identical averages.
+	m.Observe(17.0)
+	assert.Equal(t, 17.0, m.OldestValue())
+
+	// Check again after many observations.
+	for i := 500; i < 517; i++ {
+		m.Observe(float64(i))
+	}
+	assert.Equal(t, 512.0, m.OldestValue())
+}
