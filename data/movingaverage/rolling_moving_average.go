@@ -9,7 +9,7 @@ type Rolling struct {
 
 // NewRolling creates a moving average struct that tracks the given windows.
 func NewRolling(days int) *Rolling {
-	return &Rolling{days: days}
+	return &Rolling{sum: 0.0, n: 0, days: days}
 }
 
 // Observe inserts the value.

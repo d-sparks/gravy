@@ -57,13 +57,13 @@ func NewServer(
 		return nil, fmt.Errorf("Error connecting to postgres: %s", err.Error())
 	}
 
-	var dailyPricesServer Server
-	dailyPricesServer.db = db
-	dailyPricesServer.pricesTableName = dailyPricesTable
-	dailyPricesServer.tradingDatesTableName = tradingDatesTable
-	dailyPricesServer.cache = map[int32]map[time.Time]*dailyprices_pb.DailyPrices{}
+	var server Server
+	server.db = db
+	server.pricesTableName = dailyPricesTable
+	server.tradingDatesTableName = tradingDatesTable
+	server.cache = map[int32]map[time.Time]*dailyprices_pb.DailyPrices{}
 
-	return &dailyPricesServer, nil
+	return &server, nil
 }
 
 // Close the underlying postgres connection.
@@ -77,13 +77,18 @@ func (s *Server) updateAveragesForSymbol(tickTime time.Time, ticker string, dail
 	price := dailyPrices.GetStockPrices()[ticker].GetClose()
 
 	// Get old prices.
+	observations := tickIx - s.timeIndex[s.firstSeen[ticker]]
 	oldPrices := map[int]float64{}
 	for _, daysAgo := range []int{15, 35, 252, 504} {
-		oldPrices[daysAgo] = s.cache[0][s.times[tickIx-daysAgo]].GetStockPrices()[ticker].GetClose()
+		if observations >= daysAgo {
+			oldPrices[daysAgo] = s.cache[0][s.times[tickIx-daysAgo]].GetStockPrices()[ticker].GetClose()
+		} else {
+			oldPrices[daysAgo] = 0.0
+		}
 	}
 
 	// Update oldAverages if we've observed this stock for 252 days.
-	if observations := tickIx - s.timeIndex[s.firstSeen[ticker]]; observations >= 252 {
+	if observations >= 252 {
 		// On the 252 day, start tracking the year old moving averages.
 		if observations == 252 {
 			s.oldAverages[ticker] = movingaverage.NewRolling(252)
@@ -97,7 +102,7 @@ func (s *Server) updateAveragesForSymbol(tickTime time.Time, ticker string, dail
 	s.rollingAverages[252][ticker].Observe(price, oldPrices[252])
 
 	// Record the output
-	dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{}
+	dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{MovingAverages: map[int32]float64{}}
 	dailyPrices.Measurements[ticker].MovingAverages[15] = s.rollingAverages[15][ticker].Value()
 	dailyPrices.Measurements[ticker].MovingAverages[35] = s.rollingAverages[35][ticker].Value()
 	dailyPrices.Measurements[ticker].MovingAverages[252] = s.rollingAverages[252][ticker].Value()
@@ -141,10 +146,12 @@ func (s *Server) updateAverages(tickTime time.Time, dailyPrices *dailyprices_pb.
 			s.rollingAverages[15][ticker] = movingaverage.NewRolling(15)
 			s.rollingAverages[35][ticker] = movingaverage.NewRolling(35)
 			s.rollingAverages[252][ticker] = movingaverage.NewRolling(252)
+			s.alpha[ticker] = alpha.NewRolling(252, 0.0)
 		}
 	}
 
 	// Update averages.
+	dailyPrices.Measurements = map[string]*dailyprices_pb.Measurements{}
 	for ticker := range s.firstSeen {
 		s.updateAveragesForSymbol(tickTime, ticker, dailyPrices)
 	}
@@ -179,7 +186,6 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 	// Check cache.
 	if versionPrices, ok := s.cache[req.GetVersion()]; ok {
 		if cachedDailyPrices, ok := versionPrices[tickTime]; ok {
-			s.mu.Unlock()
 			return cachedDailyPrices, nil
 		}
 	}
@@ -245,6 +251,7 @@ func (s *Server) NewSession(
 		return nil, fmt.Errorf("Error getting dates to start session: %s", err.Error())
 	}
 	s.times = make([]time.Time, len(dates.GetTimestamps()))
+	s.timeIndex = map[time.Time]int{}
 	for i, date := range dates.GetTimestamps() {
 		if s.times[i], err = ptypes.Timestamp(date); err != nil {
 			return nil,
@@ -267,7 +274,7 @@ func (s *Server) NewSession(
 	// Reset alpha
 	s.alpha = map[string]*alpha.Rolling{}
 
-	return nil, nil
+	return &dailyprices_pb.NewSessionResponse{}, nil
 }
 
 // TradingDatesInRange implements the interface method. Returns trading dates in the given range.
