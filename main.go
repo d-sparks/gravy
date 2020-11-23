@@ -17,7 +17,11 @@ var (
 	start      = flag.String("start", "2005-02-25", "Start date.")
 	end        = flag.String("end", "2006-02-25", "Start date.")
 	outputDir  = flag.String("output_dir", "/tmp/foo", "Output directory.")
-	algorithms = flag.String("algorithms", "buyandhold@localhost:17502", "Comma separated list of alg@url")
+	algorithms = flag.String(
+		"algorithms",
+		"buyandhold@localhost:17502,buyspy@localhost:17503",
+		"Comma separated list of alg@url",
+	)
 )
 
 func fatalIfErr(err error) {
