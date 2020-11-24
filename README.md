@@ -24,11 +24,11 @@ The supervisor is responsible for managing the backtest and will communicate wit
 
 This should create a few files in `/tmp/foo` that are the output of the backtest.
 
-#### To ask what are the five best days for GOOGL stock.
+#### To ask what are the five best days for GOOG stock.
 
 ```
 echo "select date, open, close, (close-open)/open as perf from dailyprices
-      where ticker = 'GOOGL'
+      where ticker = 'GOOG'
       order by perf desc limit 5
 ;" | psql gravy
 ```

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path"
 	"sort"
@@ -48,11 +49,12 @@ type S struct {
 
 	// This is the source of truth. If trading live, S is in charge of keeping these up to date with the broker or
 	// exchange.
-	portfolios    map[string]*supervisor_pb.Portfolio
-	alpha         map[string]*alpha.Rolling
-	mean          map[string]*mean.Rolling
-	meanReturn    map[string]*mean.Rolling
-	benchmarkMean *mean.Rolling
+	portfolios       map[string]*supervisor_pb.Portfolio
+	alpha            map[string]*alpha.Rolling
+	mean             map[string]*mean.Rolling
+	meanReturn       map[string]*mean.Rolling
+	marketMean       *mean.Rolling
+	marketMeanReturn *mean.Rolling
 
 	// Pending orders. For intraday, we may want orders to persist across ticks.
 	pendingOrders []*supervisor_pb.Order
@@ -391,18 +393,35 @@ func (s *S) setupMetrics() {
 	s.mean = map[string]*mean.Rolling{}
 	s.meanReturn = map[string]*mean.Rolling{}
 	s.alpha = map[string]*alpha.Rolling{}
-	s.benchmarkMean = mean.NewRolling(252)
+	s.marketMean = mean.NewRolling(252)
+	s.marketMeanReturn = mean.NewRolling(252)
 	for _, algorithmID := range s.algorithmsOutOrder {
 		s.mean[algorithmID] = mean.NewRolling(252)
 		s.meanReturn[algorithmID] = mean.NewRolling(252)
-		s.alpha[algorithmID] = alpha.NewRolling(s.meanReturn[algorithmID], s.benchmarkMean, 252, 0.0)
+		s.alpha[algorithmID] = alpha.NewRolling(s.meanReturn[algorithmID], s.marketMeanReturn, 252, 0.0)
 	}
+}
+
+// divideOrZero returns the ratio of the two numbers unless the denominator is very small, in which case returns 0.0.
+func divideOrZero(n float64, d float64) float64 {
+	if math.Abs(d) < 1E-6 {
+		return 0.0
+	}
+	return n / d
 }
 
 // updateMetrics updates the mean, mean return, and alpha metrics for each algorithm.
 func (s *S) updateMetrics(prices *dailyprices_pb.DailyPrices) {
-	// Record benchmark.
-	s.benchmarkMean.Observe(prices.GetBenchmark())
+	// Record market benchmark.
+	if spyPrices, ok := prices.GetStockPrices()["SPY"]; ok && spyPrices.GetClose() > 0.0 {
+		spy0 := s.marketMean.OldestValue()
+		spy := spyPrices.GetClose()
+		s.marketMean.Observe(spy)
+		s.marketMeanReturn.Observe(divideOrZero(spy-spy0, spy0))
+	} else {
+		s.marketMean.Observe(s.marketMean.Value(252))
+		s.marketMeanReturn.Observe(s.marketMeanReturn.Value(252))
+	}
 
 	// Record each algorithms metrics.
 	for _, algorithmID := range s.algorithmsOutOrder {
@@ -412,14 +431,11 @@ func (s *S) updateMetrics(prices *dailyprices_pb.DailyPrices) {
 		s.mean[algorithmID].Observe(val)
 
 		// Record return.
-		perf := 0.0
-		if val0 > 0.0 {
-			perf = (val - val0) / val0
-		}
+		perf := divideOrZero(val-val0, val0)
 		s.meanReturn[algorithmID].Observe(perf)
 
 		// Record alpha.
-		s.alpha[algorithmID].Observe(perf, prices.GetBenchmark())
+		s.alpha[algorithmID].Observe(perf, s.marketMeanReturn.MostRecentObservation())
 	}
 }
 

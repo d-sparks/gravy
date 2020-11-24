@@ -116,3 +116,8 @@ func (r *Rolling) OldestValue() float64 {
 	}
 	return r.buffer[0]
 }
+
+// MostRecentObservation returns the most recent observation.
+func (r *Rolling) MostRecentObservation() float64 {
+	return r.buffer[(r.head+len(r.buffer)-1)%len(r.buffer)]
+}
