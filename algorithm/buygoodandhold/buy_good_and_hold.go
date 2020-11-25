@@ -1,8 +1,9 @@
-package buyandhold
+package buygoodandhold
 
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
@@ -12,9 +13,9 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
-// BuyAndHold is a simple algorithm that tries to buy a fairly diversified portfolio and holds. It sells everything and
+// BuyGoodAndHold is a simple algorithm that tries to buy a fairly diversified portfolio and holds. It sells everything and
 // rebalances periodically.
-type BuyAndHold struct {
+type BuyGoodAndHold struct {
 	algorithmio_pb.UnimplementedAlgorithmServer
 
 	// Algorithm ID (usually "buyandhold" unless multiple are running)
@@ -29,7 +30,7 @@ type BuyAndHold struct {
 }
 
 // skipTrading is a precondition. Save time if you don't need to fetch prices/portfolio.
-func (b *BuyAndHold) skipTrading() bool {
+func (b *BuyGoodAndHold) skipTrading() bool {
 	if b.invested && b.nextRebalance > 0 {
 		b.nextRebalance--
 		return true
@@ -37,15 +38,45 @@ func (b *BuyAndHold) skipTrading() bool {
 	return false
 }
 
+// getGoodStocks picks n "good" stocks by some ad hoc method.
+func getGoodStocks(dailyPrices *dailyprices_pb.DailyPrices, n int) map[string]struct{} {
+	// Only consider stocks
+	admissible := []string{}
+	for ticker, prices := range dailyPrices.GetStockPrices() {
+		// TODO: Check that these are stocks on NYSE or NASDAQ.
+		price := prices.GetClose()
+		volume := prices.GetVolume()
+		if price*volume >= float64(2E7) {
+			admissible = append(admissible, ticker)
+		}
+	}
+
+	// Sort by beta descending.
+	sort.SliceStable(admissible, func(i, j int) bool {
+		betaI := dailyPrices.GetMeasurements()[admissible[i]].GetBeta()
+		betaJ := dailyPrices.GetMeasurements()[admissible[j]].GetBeta()
+		return betaJ < betaI
+	})
+
+	// Pick the first n admissible (lowest beta).
+	good := map[string]struct{}{}
+	for i := 0; i < n; i++ {
+		good[admissible[i]] = struct{}{}
+	}
+
+	return good
+}
+
 // trade is the algorithm itself.
-func (b *BuyAndHold) trade(
+func (b *BuyGoodAndHold) trade(
 	portfolio *supervisor_pb.Portfolio,
-	prices *dailyprices_pb.DailyPrices,
+	dailyPrices *dailyprices_pb.DailyPrices,
 ) []*supervisor_pb.Order {
 	if !b.invested {
 		b.invested = true
 		b.nextRebalance = b.rebalancePeriod
-		return gravy.InvestApproximatelyUniformly(b.algorithmID, portfolio, prices)
+		goodStocks := getGoodStocks(dailyPrices, 100)
+		return gravy.InvestApproximatelyUniformlyInTargets(b.algorithmID, portfolio, dailyPrices, goodStocks)
 	} else if b.nextRebalance == 0 {
 		b.invested = false
 		return gravy.SellEverythingMarketOrder(b.algorithmID, portfolio)
@@ -53,9 +84,9 @@ func (b *BuyAndHold) trade(
 	return nil
 }
 
-// New creates a new, uninitialized BuyAndHold algorithm.
-func New(algorithmID string, rebalancePeriod int) *BuyAndHold {
-	return &BuyAndHold{
+// New creates a new, uninitialized BuyGoodAndHold algorithm.
+func New(algorithmID string, rebalancePeriod int) *BuyGoodAndHold {
+	return &BuyGoodAndHold{
 		id:              algorithmID,
 		algorithmID:     &supervisor_pb.AlgorithmId{AlgorithmId: algorithmID},
 		invested:        false,
@@ -68,19 +99,19 @@ func New(algorithmID string, rebalancePeriod int) *BuyAndHold {
 // ******************************
 
 // Init initializes the registrar. The algorithm should be listening before calling Init to avoid deadlocks.
-func (b *BuyAndHold) Init() error {
+func (b *BuyGoodAndHold) Init() error {
 	var err error
 	b.registrar, err = registrar.NewWithSupervisor()
 	return err
 }
 
 // Close closes the regitsrar.
-func (b *BuyAndHold) Close() {
+func (b *BuyGoodAndHold) Close() {
 	b.registrar.Close()
 }
 
 // Execute implements the algorithm interface.
-func (b *BuyAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (*algorithmio_pb.Output, error) {
+func (b *BuyGoodAndHold) Execute(ctx context.Context, input *algorithmio_pb.Input) (*algorithmio_pb.Output, error) {
 	fmt.Printf("Excuting algorithm on %s\n", ptypes.TimestampString(input.GetTimestamp()))
 	orders := []*supervisor_pb.Order{}
 

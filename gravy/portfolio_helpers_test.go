@@ -157,7 +157,7 @@ func TestInvestApproximatelyUniformlyManyStocks(t *testing.T) {
 		"GM":   282.0,
 		"GOOG": 7.0,
 		"MSFT": 14.0,
-		"NVDA": 15,
+		"NVDA": 15.0,
 	}
 	expectedLimit := map[string]float64{
 		"APPL": 151.5,
