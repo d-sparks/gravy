@@ -117,9 +117,6 @@ func (s *Server) updateAveragesForTicker(
 
 // updateAverages updates the various tracked rolling averages at the given time. Also updates the given prices pointer.
 func (s *Server) updateAverages(tickTime time.Time, dailyPrices *dailyprices_pb.DailyPrices) error {
-	// Initialize measurements that will be populated.
-	dailyPrices.Measurements = map[string]*dailyprices_pb.Measurements{}
-
 	// Update firstSeen if this is the first time seeing this ticker.
 	for ticker := range dailyPrices.GetStockPrices() {
 		if _, ok := s.firstSeen[ticker]; !ok {
@@ -174,7 +171,7 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 	// Query database.
 	rows, err := s.db.Query(
 		fmt.Sprintf(
-			"SELECT ticker, open, close, low, high, volume FROM %s WHERE date = $1",
+			"SELECT ticker, open, close, low, high, volume, exchange FROM %s WHERE date = $1",
 			s.pricesTableName,
 		),
 		tickTime.Format("2006-01-02"),
@@ -186,9 +183,11 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 	// Construct daily prices by scanning the query result.
 	var dailyPrices dailyprices_pb.DailyPrices
 	dailyPrices.StockPrices = map[string]*dailyprices_pb.DailyPrices_StockPrices{}
+	dailyPrices.Measurements = map[string]*dailyprices_pb.Measurements{}
 	for rows.Next() {
 		var stockPrices dailyprices_pb.DailyPrices_StockPrices
 		var ticker string
+		var exchange string
 		err := rows.Scan(
 			&ticker,
 			&stockPrices.Open,
@@ -196,11 +195,13 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 			&stockPrices.Low,
 			&stockPrices.High,
 			&stockPrices.Volume,
+			&exchange,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("Error while parsing row: `%s`", err.Error())
 		}
 		dailyPrices.StockPrices[ticker] = &stockPrices
+		dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{Exchange: exchange}
 	}
 	if rows.Err() != nil {
 		return nil, fmt.Errorf("Error constructing response: `%s`", rows.Err().Error())

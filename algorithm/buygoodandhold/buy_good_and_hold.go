@@ -3,7 +3,6 @@ package buygoodandhold
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	algorithmio_pb "github.com/d-sparks/gravy/algorithm/proto"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
@@ -39,11 +38,12 @@ func (b *BuyGoodAndHold) skipTrading() bool {
 }
 
 // getGoodStocks picks n "good" stocks by some ad hoc method.
-func getGoodStocks(dailyPrices *dailyprices_pb.DailyPrices, n int) map[string]struct{} {
+func getGoodStocks(dailyPrices *dailyprices_pb.DailyPrices) map[string]struct{} {
 	// Only consider stocks
 	admissible := []string{}
 	for ticker, prices := range dailyPrices.GetStockPrices() {
 		// TODO: Check that these are stocks on NYSE or NASDAQ.
+		// exchange := dailyPrices.GetMeasurements()[ticker].GetExchange()
 		price := prices.GetClose()
 		volume := prices.GetVolume()
 		if price*volume >= float64(2E7) {
@@ -51,16 +51,9 @@ func getGoodStocks(dailyPrices *dailyprices_pb.DailyPrices, n int) map[string]st
 		}
 	}
 
-	// Sort by beta descending.
-	sort.SliceStable(admissible, func(i, j int) bool {
-		betaI := dailyPrices.GetMeasurements()[admissible[i]].GetBeta()
-		betaJ := dailyPrices.GetMeasurements()[admissible[j]].GetBeta()
-		return betaJ < betaI
-	})
-
 	// Pick the first n admissible (lowest beta).
 	good := map[string]struct{}{}
-	for i := 0; i < n; i++ {
+	for i := 0; i < len(admissible); i++ {
 		good[admissible[i]] = struct{}{}
 	}
 
@@ -75,7 +68,7 @@ func (b *BuyGoodAndHold) trade(
 	if !b.invested {
 		b.invested = true
 		b.nextRebalance = b.rebalancePeriod
-		goodStocks := getGoodStocks(dailyPrices, 100)
+		goodStocks := getGoodStocks(dailyPrices)
 		return gravy.InvestApproximatelyUniformlyInTargets(b.algorithmID, portfolio, dailyPrices, goodStocks)
 	} else if b.nextRebalance == 0 {
 		b.invested = false

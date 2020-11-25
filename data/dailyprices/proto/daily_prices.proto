@@ -24,6 +24,7 @@ message Measurements {
   double alpha = 1;
   double beta = 2;
   map<int32, double> moving_averages = 3;
+  string exchange = 4;
 }
 
 // next id: 5
