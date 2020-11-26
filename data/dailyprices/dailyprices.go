@@ -104,11 +104,16 @@ func (s *Server) updateAveragesForTicker(
 	s.alpha[ticker].Observe(perf, benchmarkPerf)
 
 	// Update dailyPrices proto.
-	dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{MovingAverages: map[int32]float64{
+	if _, ok := dailyPrices.Measurements[ticker]; !ok {
+		dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{
+			Exchange: s.cache[0][s.firstSeen[ticker]].GetMeasurements()[ticker].GetExchange(),
+		}
+	}
+	dailyPrices.Measurements[ticker].MovingAverages = map[int32]float64{
 		15:  s.rollingAverages[ticker].Value(15),
 		35:  s.rollingAverages[ticker].Value(35),
 		252: s.rollingAverages[ticker].Value(252),
-	}}
+	}
 	dailyPrices.Measurements[ticker].Alpha = s.alpha[ticker].Alpha()
 	dailyPrices.Measurements[ticker].Beta = s.alpha[ticker].Beta()
 

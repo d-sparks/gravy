@@ -42,11 +42,10 @@ func getGoodStocks(dailyPrices *dailyprices_pb.DailyPrices) map[string]struct{} 
 	// Only consider stocks
 	admissible := []string{}
 	for ticker, prices := range dailyPrices.GetStockPrices() {
-		// TODO: Check that these are stocks on NYSE or NASDAQ.
-		// exchange := dailyPrices.GetMeasurements()[ticker].GetExchange()
+		exchange := dailyPrices.GetMeasurements()[ticker].GetExchange()
 		price := prices.GetClose()
 		volume := prices.GetVolume()
-		if price*volume >= float64(2E7) {
+		if price >= 5.0 && price*volume >= float64(2E7) && (exchange == "NYSE" || exchange == "NASDAQ") {
 			admissible = append(admissible, ticker)
 		}
 	}
