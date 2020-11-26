@@ -38,11 +38,11 @@ func (b *BuyGoodAndHold) skipTrading() bool {
 }
 
 // getGoodStocks picks n "good" stocks by some ad hoc method.
-func getGoodStocks(dailyPrices *dailyprices_pb.DailyPrices) map[string]struct{} {
+func getGoodStocks(data *dailyprices_pb.DailyData) map[string]struct{} {
 	// Only consider stocks
 	admissible := []string{}
-	for ticker, prices := range dailyPrices.GetStockPrices() {
-		exchange := dailyPrices.GetMeasurements()[ticker].GetExchange()
+	for ticker, prices := range data.GetPrices() {
+		exchange := data.GetStats()[ticker].GetExchange()
 		price := prices.GetClose()
 		volume := prices.GetVolume()
 		if price >= 5.0 && price*volume >= float64(2E7) && (exchange == "NYSE" || exchange == "NASDAQ") {
@@ -62,13 +62,13 @@ func getGoodStocks(dailyPrices *dailyprices_pb.DailyPrices) map[string]struct{} 
 // trade is the algorithm itself.
 func (b *BuyGoodAndHold) trade(
 	portfolio *supervisor_pb.Portfolio,
-	dailyPrices *dailyprices_pb.DailyPrices,
+	data *dailyprices_pb.DailyData,
 ) []*supervisor_pb.Order {
 	if !b.invested {
 		b.invested = true
 		b.nextRebalance = b.rebalancePeriod
-		goodStocks := getGoodStocks(dailyPrices)
-		return gravy.InvestApproximatelyUniformlyInTargets(b.algorithmID, portfolio, dailyPrices, goodStocks)
+		goodStocks := getGoodStocks(data)
+		return gravy.InvestApproximatelyUniformlyInTargets(b.algorithmID, portfolio, data, goodStocks)
 	} else if b.nextRebalance == 0 {
 		b.invested = false
 		return gravy.SellEverythingMarketOrder(b.algorithmID, portfolio)

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"path"
 	"sort"
@@ -179,7 +178,7 @@ func (s *S) logOrder(
 func (s *S) handleOrder(
 	tradingDate *timestamp_pb.Timestamp,
 	order *supervisor_pb.Order,
-	dailyPrices *dailyprices_pb.DailyPrices,
+	dailyPrices *dailyprices_pb.DailyData,
 ) bool {
 	// Check if the portfolio has enough of the stock to sell or enough USD to cover the limit price of the order.
 	algorithmID := order.GetAlgorithmId().GetAlgorithmId()
@@ -194,7 +193,7 @@ func (s *S) handleOrder(
 		return false
 	}
 
-	prices, ok := dailyPrices.GetStockPrices()[ticker]
+	prices, ok := dailyPrices.GetPrices()[ticker]
 	if !ok {
 		// This stock isn't on the market.
 		return false
@@ -225,7 +224,7 @@ func (s *S) handleOrder(
 func (s *S) fillPendingOrders(
 	ctx context.Context,
 	tradingDate *timestamp_pb.Timestamp,
-) (*dailyprices_pb.DailyPrices, error) {
+) (*dailyprices_pb.DailyData, error) {
 	pricesReq := &dailyprices_pb.Request{Timestamp: tradingDate, Version: 0}
 	tradingPrices, err := s.registrar.DailyPrices.Get(ctx, pricesReq)
 	if err != nil {
@@ -244,7 +243,7 @@ func (s *S) fillPendingOrders(
 func (s *S) closeDelistedPositions(
 	ctx context.Context,
 	algorithmDate *timestamp_pb.Timestamp,
-	tradingPrices *dailyprices_pb.DailyPrices,
+	tradingPrices *dailyprices_pb.DailyData,
 ) error {
 	// Get prices as the algorithm is aware.
 	var pricesReq dailyprices_pb.Request
@@ -257,10 +256,10 @@ func (s *S) closeDelistedPositions(
 
 	// Find stocks the algorithm was holding but aren't in the tradingPrices.
 	delistings := map[string]float64{}
-	for ticker := range algorithmPrices.GetStockPrices() {
-		_, ok := tradingPrices.GetStockPrices()[ticker]
+	for ticker := range algorithmPrices.GetPrices() {
+		_, ok := tradingPrices.GetPrices()[ticker]
 		if !ok {
-			delistings[ticker] = algorithmPrices.GetStockPrices()[ticker].GetClose()
+			delistings[ticker] = algorithmPrices.GetPrices()[ticker].GetClose()
 		}
 	}
 
@@ -349,7 +348,7 @@ func (s *S) setupOutput(dir string) (closer func(), err error) {
 }
 
 // logTick logs data for a tick to the gravy log.
-func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.DailyPrices) error {
+func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.DailyData) error {
 	// Convert to native timestamp.
 	nativeTime, err := ptypes.Timestamp(timestamp)
 	if err != nil {
@@ -360,7 +359,7 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	var cols []string = make([]string, 4*len(s.algorithmsOutOrder)+1)
 	cols[0] = nativeTime.Format("2006-01-02")
 	cols[1] = "0.0"
-	if stockPrices, ok := prices.GetStockPrices()["SPY"]; ok {
+	if stockPrices, ok := prices.GetPrices()["SPY"]; ok {
 		cols[1] = fmt.Sprintf("%f", stockPrices.GetClose())
 	}
 	for i, algorithmID := range s.algorithmsOutOrder {
@@ -402,22 +401,14 @@ func (s *S) setupMetrics() {
 	}
 }
 
-// divideOrZero returns the ratio of the two numbers unless the denominator is very small, in which case returns 0.0.
-func divideOrZero(n float64, d float64) float64 {
-	if math.Abs(d) < 1E-6 {
-		return 0.0
-	}
-	return n / d
-}
-
 // updateMetrics updates the mean, mean return, and alpha metrics for each algorithm.
-func (s *S) updateMetrics(prices *dailyprices_pb.DailyPrices) {
+func (s *S) updateMetrics(prices *dailyprices_pb.DailyData) {
 	// Record market benchmark.
-	if spyPrices, ok := prices.GetStockPrices()["SPY"]; ok && spyPrices.GetClose() > 0.0 {
-		spy0 := s.marketMean.OldestValue()
+	if spyPrices, ok := prices.GetPrices()["SPY"]; ok && spyPrices.GetClose() > 0.0 {
+		spy0 := s.marketMean.OldestObservation()
 		spy := spyPrices.GetClose()
 		s.marketMean.Observe(spy)
-		s.marketMeanReturn.Observe(divideOrZero(spy-spy0, spy0))
+		s.marketMeanReturn.Observe(gravy.RelativePerfOrZero(spy, spy0))
 	} else {
 		s.marketMean.Observe(s.marketMean.Value(252))
 		s.marketMeanReturn.Observe(s.marketMeanReturn.Value(252))
@@ -426,12 +417,12 @@ func (s *S) updateMetrics(prices *dailyprices_pb.DailyPrices) {
 	// Record each algorithms metrics.
 	for _, algorithmID := range s.algorithmsOutOrder {
 		// Record value.
-		val0 := s.mean[algorithmID].OldestValue()
+		val0 := s.mean[algorithmID].OldestObservation()
 		val := gravy.PortfolioValue(s.portfolios[algorithmID], prices)
 		s.mean[algorithmID].Observe(val)
 
 		// Record return.
-		perf := divideOrZero(val-val0, val0)
+		perf := gravy.RelativePerfOrZero(val, val0)
 		s.meanReturn[algorithmID].Observe(perf)
 
 		// Record alpha.

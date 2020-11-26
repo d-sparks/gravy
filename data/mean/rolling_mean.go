@@ -109,8 +109,8 @@ func (r *Rolling) Value(n int) float64 {
 	return r.sums[n] / math.Min(float64(n), float64(r.filled))
 }
 
-// OldestValue is a convenience method that returns the oldest tracked value (usually to measure relative change).
-func (r *Rolling) OldestValue() float64 {
+// OldestObservation is a convenience method that returns the oldest tracked value (usually to measure relative change).
+func (r *Rolling) OldestObservation() float64 {
 	if r.filled >= len(r.buffer) {
 		return r.buffer[r.head]
 	}

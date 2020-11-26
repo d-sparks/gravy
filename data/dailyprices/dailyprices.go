@@ -11,9 +11,23 @@ import (
 	"github.com/d-sparks/gravy/data/alpha"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	"github.com/d-sparks/gravy/data/mean"
+	"github.com/d-sparks/gravy/data/variance"
+	"github.com/d-sparks/gravy/gravy"
 	"github.com/golang/protobuf/ptypes"
 	_ "github.com/lib/pq"
 )
+
+// Stats are the values tracked per ticker.
+type Stats struct {
+	alpha                *alpha.Rolling
+	movingMean           *mean.Rolling
+	movingMeanReturn     *mean.Rolling
+	movingVariance       map[int]*variance.Rolling
+	movingMeanVolume     *mean.Rolling
+	movingVolumeVariance map[int]*variance.Rolling
+	mean                 *mean.Streaming
+	variance             *variance.Streaming
+}
 
 // Server implements dailyprices_pb.DataServer.
 type Server struct {
@@ -26,24 +40,20 @@ type Server struct {
 
 	// Cache
 	mu        sync.Mutex
-	cache     map[int32]map[time.Time]*dailyprices_pb.DailyPrices
+	cache     map[int32]map[time.Time]*dailyprices_pb.DailyData
 	times     []time.Time
 	timeIndex map[time.Time]int
 
-	// Track 15, 35, and 252 day rolling averages. (~20, 50, 365 days worth of trading days.)
-	rollingAverages       map[string]*mean.Rolling
-	rollingAverageReturns map[string]*mean.Rolling
+	// Measurements
+	stats map[string]*Stats
 
-	// Alpha for each ticker.
-	alpha map[string]*alpha.Rolling
-
-	// Benchmark for the market. (Currently SPY)
-	benchmark *mean.Rolling
-
-	// First seen time index for each asset.
+	// Tracking
 	firstSeen    map[string]time.Time
 	lastSeen     map[string]time.Time
 	missingDates map[string]map[time.Time]struct{}
+
+	// Benchmark for the market. (Currently SPY)
+	benchmark *mean.Rolling
 }
 
 // NewServer creates an empty daily prices server.
@@ -62,7 +72,7 @@ func NewServer(
 	server.db = db
 	server.pricesTableName = dailyPricesTable
 	server.tradingDatesTableName = tradingDatesTable
-	server.cache = map[int32]map[time.Time]*dailyprices_pb.DailyPrices{}
+	server.cache = map[int32]map[time.Time]*dailyprices_pb.DailyData{}
 
 	return &server, nil
 }
@@ -72,91 +82,131 @@ func (s *Server) Close() {
 	s.db.Close()
 }
 
-// updateAveragesForTicker updates the averages and alpha and returns the relative performance.
-func (s *Server) updateAveragesForTicker(
+// updateStatsForTicker updates the averages and alpha and returns the relative performance.
+func (s *Server) updateStatsForTicker(
 	tickTime time.Time,
 	ticker string,
 	benchmarkPerf float64,
-	dailyPrices *dailyprices_pb.DailyPrices,
+	data *dailyprices_pb.DailyData,
 ) float64 {
+	stats := s.stats[ticker]
+
 	// Get the new price.
-	price := 0.0
-	if p, ok := dailyPrices.GetStockPrices()[ticker]; ok {
-		price = p.GetClose()
-	}
+	prices := data.GetPrices()[ticker]
+	price := prices.GetClose()
+	volume := prices.GetVolume()
 
-	// Get relative performance.
-	perf := 0.0
-	if price0 := s.rollingAverages[ticker].OldestValue(); price0 > 0.0 {
-		perf = (price - price0) / price0
-	}
-
-	// Update rolling average.
-	s.rollingAverages[ticker].Observe(price)
-	s.rollingAverageReturns[ticker].Observe(perf)
-
-	// If this is the benchmark asset, it is the benchmark. (And the given benchmark ought to be 0.0.)
+	// Get relative performance. If ticker is the benchmark asset, set benchmarkPerf.
+	perf := gravy.RelativePerfOrZero(price, stats.movingMean.OldestObservation())
 	if ticker == "SPY" {
 		benchmarkPerf = perf
 	}
 
-	// Assumes the benchmark rollingAverageReturns has been updated already.
-	s.alpha[ticker].Observe(perf, benchmarkPerf)
+	// Update moving means first.
+	stats.movingMean.Observe(price)
+	stats.movingMeanReturn.Observe(perf)
+	stats.movingMeanVolume.Observe(volume)
+
+	// Now update moving variances.
+	stats.alpha.Observe(perf, benchmarkPerf)
+	stats.movingVariance[15].Observe(price)
+	stats.movingVariance[35].Observe(price)
+	stats.movingVariance[252].Observe(price)
+	stats.movingVolumeVariance[15].Observe(volume)
+
+	// Update streaming quantities.
+	stats.mean.Observe(price)
+	stats.variance.Observe(price)
 
 	// Update dailyPrices proto.
-	if _, ok := dailyPrices.Measurements[ticker]; !ok {
-		dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{
-			Exchange: s.cache[0][s.firstSeen[ticker]].GetMeasurements()[ticker].GetExchange(),
+	if _, ok := data.GetStats()[ticker]; !ok {
+		data.Stats[ticker] = &dailyprices_pb.Stats{
+			Exchange: s.cache[0][s.firstSeen[ticker]].GetStats()[ticker].GetExchange(),
 		}
 	}
-	dailyPrices.Measurements[ticker].MovingAverages = map[int32]float64{
-		15:  s.rollingAverages[ticker].Value(15),
-		35:  s.rollingAverages[ticker].Value(35),
-		252: s.rollingAverages[ticker].Value(252),
+	out := data.Stats[ticker]
+	out.Alpha = stats.alpha.Alpha()
+	out.Beta = stats.alpha.Beta()
+	out.MovingAverages = map[int32]float64{
+		15:  stats.movingMean.Value(15),
+		35:  stats.movingMean.Value(35),
+		252: stats.movingMean.Value(252),
 	}
-	dailyPrices.Measurements[ticker].Alpha = s.alpha[ticker].Alpha()
-	dailyPrices.Measurements[ticker].Beta = s.alpha[ticker].Beta()
+	out.MovingAverageReturns = map[int32]float64{
+		15:  stats.movingMeanReturn.Value(15),
+		35:  stats.movingMeanReturn.Value(35),
+		252: stats.movingMeanReturn.Value(252),
+	}
+	out.MovingVariance = map[int32]float64{
+		15:  stats.movingVariance[15].Value(),
+		35:  stats.movingVariance[35].Value(),
+		252: stats.movingVariance[252].Value(),
+	}
+	out.MovingVolume = map[int32]float64{
+		15: stats.movingMeanVolume.Value(15),
+	}
+	out.MovingVolumeVariance = map[int32]float64{
+		15: stats.movingVolumeVariance[15].Value(),
+	}
+	out.Mean = stats.mean.Value()
+	out.Variance = stats.variance.Value()
 
 	return perf
 }
 
-// updateAverages updates the various tracked rolling averages at the given time. Also updates the given prices pointer.
-func (s *Server) updateAverages(tickTime time.Time, dailyPrices *dailyprices_pb.DailyPrices) error {
+// updateStats updates the various tracked rolling averages at the given time. Also updates the given prices pointer.
+func (s *Server) updateStats(tickTime time.Time, data *dailyprices_pb.DailyData) error {
 	// Update firstSeen if this is the first time seeing this ticker.
-	for ticker := range dailyPrices.GetStockPrices() {
+	for ticker := range data.GetPrices() {
 		if _, ok := s.firstSeen[ticker]; !ok {
-			s.rollingAverages[ticker] = mean.NewRolling(15, 35, 252)
-			s.rollingAverageReturns[ticker] = mean.NewRolling(15, 35, 252)
+			s.stats[ticker] = &Stats{
+				movingMean:       mean.NewRolling(15, 35, 252),
+				movingMeanReturn: mean.NewRolling(15, 35, 252),
+				movingMeanVolume: mean.NewRolling(15),
+				mean:             mean.NewStreaming(),
+			}
 		}
 	}
 
 	// If this is the first day, find and track the benchmark (SPY).
 	if tickTime == s.times[0] {
-		ok := true
-		if s.benchmark, ok = s.rollingAverageReturns["SPY"]; !ok {
+		if stats, ok := s.stats["SPY"]; !ok {
 			return fmt.Errorf("Error: Could not find market benchmark.")
+		} else {
+			s.benchmark = stats.movingMeanReturn
 		}
 	}
 
 	// Now create alphas if necessary.
-	for ticker := range dailyPrices.GetStockPrices() {
+	for ticker := range data.GetPrices() {
 		if _, ok := s.firstSeen[ticker]; !ok {
 			s.firstSeen[ticker] = tickTime
-			s.alpha[ticker] = alpha.NewRolling(s.rollingAverageReturns[ticker], s.benchmark, 252, 0.0)
+			stats := s.stats[ticker]
+			stats.alpha = alpha.NewRolling(stats.movingMeanReturn, s.benchmark, 252, 0.0)
+			stats.movingVariance = map[int]*variance.Rolling{
+				15:  variance.NewRolling(stats.movingMean, 15),
+				35:  variance.NewRolling(stats.movingMean, 35),
+				252: variance.NewRolling(stats.movingMean, 252),
+			}
+			stats.movingVolumeVariance = map[int]*variance.Rolling{
+				15: variance.NewRolling(stats.movingMeanVolume, 15),
+			}
+			stats.variance = variance.NewStreaming()
 		}
 	}
 
 	// Update averages first for SPY, the benchmark, as it is necessary for the comparisons that are made to it.
-	benchmarkPerf := s.updateAveragesForTicker(tickTime, "SPY", 0.0, dailyPrices)
+	benchmarkPerf := s.updateStatsForTicker(tickTime, "SPY", 0.0, data)
 	for ticker := range s.firstSeen {
-		s.updateAveragesForTicker(tickTime, ticker, benchmarkPerf, dailyPrices)
+		// TODO: Skip SPY!!!
+		s.updateStatsForTicker(tickTime, ticker, benchmarkPerf, data)
 	}
 
 	return nil
 }
 
 // Get implements the get endpoint for dailyprices_pb.DataServer.
-func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailyprices_pb.DailyPrices, error) {
+func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailyprices_pb.DailyData, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -168,8 +218,8 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 
 	// Check cache.
 	if versionPrices, ok := s.cache[req.GetVersion()]; ok {
-		if cachedDailyPrices, ok := versionPrices[tickTime]; ok {
-			return cachedDailyPrices, nil
+		if cachedDailyData, ok := versionPrices[tickTime]; ok {
+			return cachedDailyData, nil
 		}
 	}
 
@@ -186,45 +236,46 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 	}
 
 	// Construct daily prices by scanning the query result.
-	var dailyPrices dailyprices_pb.DailyPrices
-	dailyPrices.StockPrices = map[string]*dailyprices_pb.DailyPrices_StockPrices{}
-	dailyPrices.Measurements = map[string]*dailyprices_pb.Measurements{}
+	data := dailyprices_pb.DailyData{
+		Prices: map[string]*dailyprices_pb.Prices{},
+		Stats:  map[string]*dailyprices_pb.Stats{},
+	}
 	for rows.Next() {
-		var stockPrices dailyprices_pb.DailyPrices_StockPrices
+		var prices dailyprices_pb.Prices
 		var ticker string
 		var exchange string
 		err := rows.Scan(
 			&ticker,
-			&stockPrices.Open,
-			&stockPrices.Close,
-			&stockPrices.Low,
-			&stockPrices.High,
-			&stockPrices.Volume,
+			&prices.Open,
+			&prices.Close,
+			&prices.Low,
+			&prices.High,
+			&prices.Volume,
 			&exchange,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("Error while parsing row: `%s`", err.Error())
 		}
-		dailyPrices.StockPrices[ticker] = &stockPrices
-		dailyPrices.Measurements[ticker] = &dailyprices_pb.Measurements{Exchange: exchange}
+		data.Prices[ticker] = &prices
+		data.Stats[ticker] = &dailyprices_pb.Stats{Exchange: exchange}
 	}
 	if rows.Err() != nil {
 		return nil, fmt.Errorf("Error constructing response: `%s`", rows.Err().Error())
 	}
 
 	// Update averages.
-	if err = s.updateAverages(tickTime, &dailyPrices); err != nil {
+	if err = s.updateStats(tickTime, &data); err != nil {
 		return nil, fmt.Errorf("Error updating averages: %s", err.Error())
 	}
 
 	// Stamp, cache, and return.
-	dailyPrices.Timestamp = req.GetTimestamp()
-	dailyPrices.Version = req.GetVersion()
-	if _, ok := s.cache[dailyPrices.GetVersion()]; !ok {
-		s.cache[dailyPrices.GetVersion()] = map[time.Time]*dailyprices_pb.DailyPrices{}
+	data.Timestamp = req.GetTimestamp()
+	data.Version = req.GetVersion()
+	if _, ok := s.cache[data.GetVersion()]; !ok {
+		s.cache[data.GetVersion()] = map[time.Time]*dailyprices_pb.DailyData{}
 	}
-	s.cache[dailyPrices.GetVersion()][tickTime] = &dailyPrices
-	return &dailyPrices, nil
+	s.cache[data.GetVersion()][tickTime] = &data
+	return &data, nil
 }
 
 // NewSession implements the interface and sets/resets state for the session.
@@ -247,17 +298,11 @@ func (s *Server) NewSession(
 		s.timeIndex[s.times[i]] = i
 	}
 
-	// Reset averages.
-	s.rollingAverages = map[string]*mean.Rolling{}
-	s.rollingAverageReturns = map[string]*mean.Rolling{}
-
-	// Reset first seen times.
+	// Reset measurements.
+	s.stats = map[string]*Stats{}
 	s.firstSeen = map[string]time.Time{}
 	s.lastSeen = map[string]time.Time{}
 	s.missingDates = map[string]map[time.Time]struct{}{}
-
-	// Reset alpha
-	s.alpha = map[string]*alpha.Rolling{}
 
 	return &dailyprices_pb.NewSessionResponse{}, nil
 }

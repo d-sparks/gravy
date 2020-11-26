@@ -7,7 +7,7 @@ import "google/protobuf/timestamp.proto";
 package dailyprices;
 
 service Data {
-  rpc Get(Request) returns (DailyPrices) {}
+  rpc Get(Request) returns (DailyData) {}
 
   rpc NewSession(NewSessionRequest) returns (NewSessionResponse) {}
 
@@ -19,29 +19,37 @@ message Request {
   int32 version = 2;
 }
 
-// next id: 6
-message Measurements {
+// next id: 11
+message Stats {
   double alpha = 1;
   double beta = 2;
-  map<int32, double> moving_averages = 3;
+  map<int32, double> moving_averages = 3;          // 15, 35, 252
+  map<int32, double> moving_average_returns = 10;  // 15, 35, 252
+  map<int32, double> moving_variance = 5;          // 15, 35, 252
+  map<int32, double> moving_volume = 8;            // 15
+  map<int32, double> moving_volume_variance = 9;   // 15
   string exchange = 4;
+
+  double mean = 6;
+  double variance = 7;
 }
 
+// next id: 7
+message Prices {
+  double open = 1;
+  double close = 2;
+  double low = 4;
+  double high = 5;
+  double volume = 6;
+ }
+
 // next id: 5
-message DailyPrices {
+message DailyData {
   google.protobuf.Timestamp timestamp = 2;
   int32 version = 3;
 
-  message StockPrices {
-    double open = 1;
-    double close = 2;
-    double low = 4;
-    double high = 5;
-    double volume = 6;
-  }
-
-  map<string, StockPrices> stock_prices = 1;
-  map<string, Measurements> measurements = 4;
+  map<string, Prices> prices = 1;
+  map<string, Stats> stats = 4;
 }
 
 message Range {

@@ -30,7 +30,7 @@ func (b *MyAlgorithm) skipTrading() bool {
 // trade is the algorithm itself.
 func (b *MyAlgorithm) trade(
 	portfolio *supervisor_pb.Portfolio,
-	prices *dailyprices_pb.DailyPrices,
+	data *dailyprices_pb.DailyData,
 ) []*supervisor_pb.Order {
 	return nil
 }
@@ -71,12 +71,12 @@ func (b *MyAlgorithm) Execute(ctx context.Context, input *algorithmio_pb.Input) 
 		}
 
 		req := dailyprices_pb.Request{Timestamp: input.GetTimestamp(), Version: 0}
-		prices, err := b.registrar.DailyPrices.Get(ctx, &req)
+		data, err := b.registrar.DailyPrices.Get(ctx, &req)
 		if err != nil {
 			return nil, fmt.Errorf("Error getting daily prices in `%s`: %s", b.id, err.Error())
 		}
 
-		orders = b.trade(portfolio, prices)
+		orders = b.trade(portfolio, data)
 		for _, order := range orders {
 			if _, err := b.registrar.Supervisor.PlaceOrder(ctx, order); err != nil {
 				return nil, fmt.Errorf(

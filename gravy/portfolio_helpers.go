@@ -8,17 +8,17 @@ import (
 )
 
 // PortfolioValue returns the value at last closing prices.
-func PortfolioValue(portfolio *supervisor_pb.Portfolio, prices *dailyprices_pb.DailyPrices) float64 {
+func PortfolioValue(portfolio *supervisor_pb.Portfolio, prices *dailyprices_pb.DailyData) float64 {
 	value := portfolio.GetUsd()
 	for ticker, volume := range portfolio.GetStocks() {
-		value += volume * prices.GetStockPrices()[ticker].GetClose()
+		value += volume * prices.GetPrices()[ticker].GetClose()
 	}
 	return value
 }
 
 // TargetUniformInvestment returns the target value per stock to achieve uniform investment.
-func TargetUniformInvestment(portfolio *supervisor_pb.Portfolio, prices *dailyprices_pb.DailyPrices) float64 {
-	return PortfolioValue(portfolio, prices) / float64(len(prices.GetStockPrices()))
+func TargetUniformInvestment(portfolio *supervisor_pb.Portfolio, prices *dailyprices_pb.DailyData) float64 {
+	return PortfolioValue(portfolio, prices) / float64(len(prices.GetPrices()))
 }
 
 // SellEverythingWithStop creates stop orders to sell the portfolio.
@@ -39,17 +39,17 @@ func SellEverythingWithStop(
 }
 
 // SellEverythingWithStopPercent produces Orders to sell the entire portfolio. Each order has a stop equal to
-// stopPercent * prices.GetStockPrices()[ticker].GetClose().
+// stopPercent * prices.GetPrices()[ticker].GetClose().
 func SellEverythingWithStopPercent(
 	algorithmID *supervisor_pb.AlgorithmId,
 	portfolio *supervisor_pb.Portfolio,
-	prices *dailyprices_pb.DailyPrices,
+	prices *dailyprices_pb.DailyData,
 	stopPercent float64,
 ) []*supervisor_pb.Order {
 	return SellEverythingWithStop(
 		algorithmID,
 		portfolio,
-		func(ticker string) float64 { return prices.GetStockPrices()[ticker].GetClose() * stopPercent },
+		func(ticker string) float64 { return prices.GetPrices()[ticker].GetClose() * stopPercent },
 	)
 }
 
@@ -66,7 +66,7 @@ func SellEverythingMarketOrder(
 func InvestApproximatelyUniformlyInTargets(
 	algorithmID *supervisor_pb.AlgorithmId,
 	portfolio *supervisor_pb.Portfolio,
-	prices *dailyprices_pb.DailyPrices,
+	prices *dailyprices_pb.DailyData,
 	targets map[string]struct{},
 ) (orders []*supervisor_pb.Order) {
 	if len(targets) == 0 {
@@ -86,7 +86,7 @@ func InvestApproximatelyUniformlyInTargets(
 	//   0.9999 * portfolioValue
 	//
 	// Thus, the investment is safe.
-	for ticker, stockPrices := range prices.GetStockPrices() {
+	for ticker, stockPrices := range prices.GetPrices() {
 		if _, ok := targets[ticker]; !ok {
 			continue
 		}
@@ -107,7 +107,7 @@ func InvestApproximatelyUniformlyInTargets(
 		var nextTicker string
 		nextImprovement := 0.0
 		nextPrice := 0.0
-		for ticker, stockPrices := range prices.GetStockPrices() {
+		for ticker, stockPrices := range prices.GetPrices() {
 			if _, ok := targets[ticker]; !ok {
 				continue
 			}
@@ -145,10 +145,10 @@ func InvestApproximatelyUniformlyInTargets(
 func InvestApproximatelyUniformly(
 	algorithmID *supervisor_pb.AlgorithmId,
 	portfolio *supervisor_pb.Portfolio,
-	prices *dailyprices_pb.DailyPrices,
+	prices *dailyprices_pb.DailyData,
 ) (orders []*supervisor_pb.Order) {
 	targets := map[string]struct{}{}
-	for ticker := range prices.GetStockPrices() {
+	for ticker := range prices.GetPrices() {
 		targets[ticker] = struct{}{}
 	}
 	return InvestApproximatelyUniformlyInTargets(algorithmID, portfolio, prices, targets)

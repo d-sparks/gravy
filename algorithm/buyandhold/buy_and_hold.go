@@ -40,12 +40,12 @@ func (b *BuyAndHold) skipTrading() bool {
 // trade is the algorithm itself.
 func (b *BuyAndHold) trade(
 	portfolio *supervisor_pb.Portfolio,
-	prices *dailyprices_pb.DailyPrices,
+	data *dailyprices_pb.DailyData,
 ) []*supervisor_pb.Order {
 	if !b.invested {
 		b.invested = true
 		b.nextRebalance = b.rebalancePeriod
-		return gravy.InvestApproximatelyUniformly(b.algorithmID, portfolio, prices)
+		return gravy.InvestApproximatelyUniformly(b.algorithmID, portfolio, data)
 	} else if b.nextRebalance == 0 {
 		b.invested = false
 		return gravy.SellEverythingMarketOrder(b.algorithmID, portfolio)

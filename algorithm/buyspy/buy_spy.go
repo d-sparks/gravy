@@ -49,10 +49,10 @@ func (b *BuySPY) Close() {
 // InvestInSPY attempts to invest entirely in SPY.
 func (b *BuySPY) InvestInSPY(
 	portfolio *supervisor_pb.Portfolio,
-	prices *dailyprices_pb.DailyPrices,
+	data *dailyprices_pb.DailyData,
 ) (orders []*supervisor_pb.Order) {
 	// Get prices and desired number of units.
-	SPYPrice := prices.GetStockPrices()["SPY"].GetClose()
+	SPYPrice := data.GetPrices()["SPY"].GetClose()
 	limit := 1.01 * SPYPrice
 	USD := portfolio.GetUsd()
 	units := math.Floor(USD / limit)

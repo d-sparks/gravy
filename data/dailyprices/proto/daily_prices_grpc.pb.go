@@ -17,7 +17,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DataClient interface {
-	Get(ctx context.Context, in *Request, opts ...grpc.CallOption) (*DailyPrices, error)
+	Get(ctx context.Context, in *Request, opts ...grpc.CallOption) (*DailyData, error)
 	NewSession(ctx context.Context, in *NewSessionRequest, opts ...grpc.CallOption) (*NewSessionResponse, error)
 	TradingDatesInRange(ctx context.Context, in *Range, opts ...grpc.CallOption) (*TradingDates, error)
 }
@@ -30,8 +30,8 @@ func NewDataClient(cc grpc.ClientConnInterface) DataClient {
 	return &dataClient{cc}
 }
 
-func (c *dataClient) Get(ctx context.Context, in *Request, opts ...grpc.CallOption) (*DailyPrices, error) {
-	out := new(DailyPrices)
+func (c *dataClient) Get(ctx context.Context, in *Request, opts ...grpc.CallOption) (*DailyData, error) {
+	out := new(DailyData)
 	err := c.cc.Invoke(ctx, "/dailyprices.Data/Get", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (c *dataClient) TradingDatesInRange(ctx context.Context, in *Range, opts ..
 // All implementations must embed UnimplementedDataServer
 // for forward compatibility
 type DataServer interface {
-	Get(context.Context, *Request) (*DailyPrices, error)
+	Get(context.Context, *Request) (*DailyData, error)
 	NewSession(context.Context, *NewSessionRequest) (*NewSessionResponse, error)
 	TradingDatesInRange(context.Context, *Range) (*TradingDates, error)
 	mustEmbedUnimplementedDataServer()
@@ -71,7 +71,7 @@ type DataServer interface {
 type UnimplementedDataServer struct {
 }
 
-func (UnimplementedDataServer) Get(context.Context, *Request) (*DailyPrices, error) {
+func (UnimplementedDataServer) Get(context.Context, *Request) (*DailyData, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
 func (UnimplementedDataServer) NewSession(context.Context, *NewSessionRequest) (*NewSessionResponse, error) {
