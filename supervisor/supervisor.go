@@ -471,9 +471,18 @@ func (s *S) SynchronousDailySim(
 	if err != nil {
 		return nil, fmt.Errorf("Error getting trading dates: %s", err.Error())
 	}
+	if len(tradingDates.GetTimestamps()) == 0 {
+		return nil, fmt.Errorf("Empty trading date range.")
+	}
 
 	// Set up the metrics.
 	s.setupMetrics()
+
+	// Fill empty orders at first trading date, causing the dailyprices service to "warmup" in case no algorithms
+	// get prices on the first trading day (which is necessary for some metrics).
+	if _, err := s.fillPendingOrders(ctx, tradingDates.GetTimestamps()[0]); err != nil {
+		return nil, err
+	}
 
 	// Simulate over the trading dates.
 	for i := 1; i < len(tradingDates.GetTimestamps()); i++ {
