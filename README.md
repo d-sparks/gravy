@@ -18,9 +18,7 @@ The supervisor is responsible for managing the backtest and will communicate wit
 
 1. Follow the instructions in `data/dailyprices` to get the basic `dailyprices` db.
 2. `go run cmd/data/dailyprices/main.go`
-3. `go run cmd/supervisor/main.go`
-4. `go run cmd/algorithms/buyandhold/main.go`
-5. `go run main.go`
+3. Run a study, such as `./studies/heads_or_tails.sh`
 
 This should create a few files in `/tmp/foo` that are the output of the backtest.
 
