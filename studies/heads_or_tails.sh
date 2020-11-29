@@ -16,17 +16,9 @@ python3 \
   --port="17506" \
   --model_dir="algorithm/headsortails/train/model" &
 
-# go run cmd/algorithm/headsortails/main.go \
-#   --id="headsortails" \
-#   --port=17505 \
-#   --mode="train" \
-#   --sample_ratio=0.02 \
-#   --output="${OUTPUT_DIR}/headsortails_data.csv" \
-#   > "${OUTPUT_DIR}/headsortailsstdout" &
-
 # Run
 go run main.go \
   --start="2005-02-25" \
-  --end="2005-03-02" \
+  --end="2005-04-02" \
   --output_dir="/tmp/fizz" \
   --algorithms="headsortails@localhost:17506"

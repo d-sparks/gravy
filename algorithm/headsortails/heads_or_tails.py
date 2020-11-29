@@ -91,9 +91,10 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         if self.num_results < min_results:
             return
 
-        for ticker in daily_data.prices.items():
-            print(extract_features(ticker, daily_data))
-            break
+        batch = list(filter(None.__ne__,
+                            [self.extract_features(ticker, daily_data)
+                             for ticker, prices in daily_data.prices.items()]))
+        self.model.predict(batch)
 
         return
 
@@ -166,9 +167,6 @@ if __name__ == '__main__':
         default='algorithm/headsortails/train/data/2005_to_2015_data.csv',
         required=False)
     args = parser.parse_args()
-
-    # model_dir = os.path.join(os.getcwd(), args.model_dir)
-    # data_file = os.path.join(os.getcwd(), args.test_on_data)
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     algorithm_io_pb2_grpc.add_AlgorithmServicer_to_server(
