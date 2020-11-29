@@ -5,6 +5,7 @@ import math
 import os
 import pandas as pd
 import sklearn.metrics as metrics
+import sys
 import tensorflow as tf
 
 from algorithm.proto import algorithm_io_pb2
@@ -19,15 +20,90 @@ from supervisor.proto import supervisor_pb2
 
 min_results = 15
 
+"""
+Map of precision to threshold, determined from Heads_or_Tails.ipynb.
+"""
+thresholds = dict({
+    0.5: 0.47802734375,
+    0.6: 0.58642578125,
+    0.7: 0.73291015625,
+    0.8: 0.79052734375,
+    0.9: 0.83056640625})
+
 
 def z_score_or_zero(x, mu, sigma):
     """
     Returns the z score unless sigma is prohibitively small, in which case
     returns 0.0. TODO: Move to a helper package.
     """
-    if sigma < 1E-6:
+    if sigma == None or sigma < 1E-6:
         return 0.0
     return (x - mu) / sigma
+
+
+def sqrt_or_zero(x):
+    """
+    Returns hte square root of x if x >= 0.0. TODO: Move to a helper package.
+    """
+    return math.sqrt(x) if x >= 0.0 else 0.0
+
+
+def sell_stocks_with_stop(algorithm_id, tickers, portfolio, stop):
+    """
+    Creates orders to sell all tickers at the stop price determined by the
+    given `stop` lambda. TODO: Move to a helper package.
+    """
+    orders = []
+    for ticker in tickers:
+        if ticker not in portfolio.stocks:
+            continue
+        units = portfolio.stocks[ticker]
+        orders += [supervisor_pb2.Order(
+            algorithm_id=algorithm_id, ticker=ticker,
+            volume=-units, stop=stop(ticker))]
+    return orders
+
+
+def sell_stocks_market_order(algorithm_id, tickers, portfolio):
+    """
+    Sells all held tickers with market orders. TODO: Move to a helper package.
+    """
+    return sell_stocks_with_stop(
+        algorithm_id, tickers, portfolio, lambda ticker: 0.0)
+
+
+def portfolio_value(portfolio, prices):
+    """
+    Calculates the portfolio value at closing prices. TODO: Move to a helper
+    package.
+    """
+    value = portfolio.usd
+    for ticker, units in portfolio.stocks.items():
+        if ticker in prices:
+            value += prices[ticker].close
+    return value
+
+
+def orders_for_target_units(algorithm_id, ticker, target_units, limit):
+    """
+    Makes orders for the target number of units batched as 0.9*target,
+    0.9*(target - 0.9*target), and so on, and includes any number of single
+    unit orders necessary to reach target.
+    """
+    orders = []
+    placed = 0
+    next_batch = int(target_units * 0.9)
+    while True:
+        if placed + next_batch > target_units:
+            if next_batch == 1:
+                break
+            next_batch = max(1, int((target_units-placed) * 0.9))
+            continue
+        orders += [supervisor_pb2.Order(
+            algorithm_id=algorithm_id, ticker=ticker,
+            volume=next_batch, limit=limit)]
+        placed += next_batch
+    return orders
 
 
 class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
@@ -40,7 +116,42 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         Optionally skip trading to speed things up. Won't query for portfolio
         and prices and will immediately call DoneTrading.
         """
-        return False
+        self.num_results += 1
+        return self.num_results < min_results
+
+    def trade_all_in_on_highest_probability(
+            self, portfolio, prices, tickers, predictions):
+        """
+        This strategy attempts to go all in on the stock with highest
+        probability of going up assuming this probability is greater than 0.5.
+        Otherwise, buy SPY. Assumes all tickers are in prices.
+        1. Determine desired ticker.
+        2. Sell anything else that is held.
+        3. Determine how much of desired ticker to buy.
+        """
+        desired_ticker = "SPY"
+        max_prediction = 0.0
+        for i in range(0, len(tickers)):
+            if predictions[i] > max(thresholds[0.5], max_prediction):
+                max_prediction = predictions[i]
+                desired_ticker = tickers[i]
+
+        to_sell = [ticker for ticker, units in portfolio.stocks.items()
+                   if ticker != desired_ticker and units > 0.0]
+        orders = sell_stocks_market_order(
+            self.algorithm_id, to_sell, portfolio)
+
+        price = prices[desired_ticker].close
+        held = 0.0
+        if desired_ticker in portfolio.stocks:
+            held = portfolio.stocks[desired_ticker]
+        target = portfolio_value(portfolio, prices) - held * price
+        limit = 1.01*price
+        target_units = int(target / limit)
+        orders += orders_for_target_units(
+            self.algorithm_id, desired_ticker, target_units, price*1.01)
+
+        return orders
 
     def extract_features(self, ticker, daily_data):
         """
@@ -60,18 +171,19 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         price = prices.close
         market_price = market_prices.close
 
-        z_vol_15 = z_score_or_zero(prices.volume, stats.moving_volume[15],
-                                   math.sqrt(stats.moving_volume_variance[15]))
+        z_vol_15 = z_score_or_zero(
+            prices.volume, stats.moving_volume[15],
+            sqrt_or_zero(stats.moving_volume_variance[15]))
         z_15 = z_score_or_zero(price, stats.moving_averages[15],
-                               math.sqrt(stats.moving_variance[15]))
+                               sqrt_or_zero(stats.moving_variance[15]))
         z_35 = z_score_or_zero(price, stats.moving_averages[35],
-                               math.sqrt(stats.moving_variance[35]))
+                               sqrt_or_zero(stats.moving_variance[35]))
         z_252 = z_score_or_zero(price, stats.moving_averages[252],
-                                math.sqrt(stats.moving_variance[252]))
+                                sqrt_or_zero(stats.moving_variance[252]))
         beta = stats.beta
-        sigma_market_15 = math.sqrt(market_stats.moving_variance[15])
-        sigma_market_35 = math.sqrt(market_stats.moving_variance[35])
-        sigma_market_252 = math.sqrt(market_stats.moving_variance[252])
+        sigma_market_15 = sqrt_or_zero(market_stats.moving_variance[15])
+        sigma_market_35 = sqrt_or_zero(market_stats.moving_variance[35])
+        sigma_market_252 = sqrt_or_zero(market_stats.moving_variance[252])
         z_market_15 = z_score_or_zero(
             market_price, market_stats.moving_averages[15], sigma_market_15)
         z_market_35 = z_score_or_zero(
@@ -87,16 +199,17 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         """
         Tells the algorithm to trade. Mostly unimplemented.
         """
-        self.num_results += 1
-        if self.num_results < min_results:
-            return
+        tickers, prices = zip(
+            *[(t, p) for t, p in daily_data.prices.items()])
+        features = [self.extract_features(ticker, daily_data)
+                    for ticker in tickers]
+        predictions = self.model.predict(features)
 
-        batch = list(filter(None.__ne__,
-                            [self.extract_features(ticker, daily_data)
-                             for ticker, prices in daily_data.prices.items()]))
-        self.model.predict(batch)
+        if self.strategy == 'all_in_on_highest_probability':
+            return self.trade_all_in_on_highest_probability(
+                portfolio, daily_data.prices, tickers, predictions)
 
-        return
+        return []
 
     def test(self, test_data_path):
         """
@@ -109,7 +222,7 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         fpr, tpr, _ = metrics.roc_curve(hot_labels, hot_preds)
         logging.info('Model loaded with %f AUC.' % metrics.auc(fpr, tpr))
 
-    def __init__(self, id, model_dir, test_data_path):
+    def __init__(self, id, model_dir, strategy, test_data_path):
         """
         Constructor for heads or tails model.
         """
@@ -123,6 +236,7 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         self.registrar = Registrar()
         self.num_results = 0
         self.model = tf.keras.models.load_model(model_dir)
+        self.strategy = strategy
 
         self.test(test_data_path)
 
@@ -136,11 +250,16 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         logging.info('Executing algorithm on %s' % timestamp)
 
         if not self.skip_trading():
+            # Get prices, portfolio, and run the algorithm.
             portfolio = self.registrar.supervisor_stub.GetPortfolio(
                 self.algorithm_id)
             daily_data = self.registrar.dailyprices_stub.Get(
                 daily_prices_pb2.Request(timestamp=input.timestamp, version=0))
-            self.trade(portfolio, daily_data)
+            orders = self.trade(portfolio, daily_data)
+
+            # Submit the orders.
+            for order in orders:
+                self.registrar.supervisor_stub.PlaceOrder(order)
 
         # Indicate done trading.
         self.registrar.supervisor_stub.DoneTrading(self.algorithm_id)
@@ -151,9 +270,11 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
     registrar = None
     num_results = 0
     model = None
+    strategy = None
 
 
 if __name__ == '__main__':
+    # Parse flags
     parser = argparse.ArgumentParser(description='Heads or Tails algorithm.')
     parser.add_argument('--id', type=str, help='Algorithm name',
                         default='headsortails', required=False)
@@ -162,15 +283,26 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir', type=str, help='Model directory',
                         default='algorithm/headsortails/train/model',
                         required=False)
+    parser.add_argument('--strategy', type=str, help='Model strategy',
+                        default='all_in_on_highest_probability',
+                        required=False)
     parser.add_argument(
         '--test_data', type=str, help='Evaluate model on data.',
         default='algorithm/headsortails/train/data/2005_to_2015_data.csv',
         required=False)
     args = parser.parse_args()
 
+    # Verify strategy
+    strategy = args.strategy
+    valid_strategies = set(['all_in_on_highest_probability'])
+    if strategy not in valid_strategies:
+        logging.error('Unknown strategy `%s`' % strategy)
+
+    # Serve
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     algorithm_io_pb2_grpc.add_AlgorithmServicer_to_server(
-        HeadsOrTails(args.id, args.model_dir, args.test_data), server)
+        HeadsOrTails(args.id, args.model_dir, args.strategy, args.test_data),
+        server)
     server.add_insecure_port('[::]:%s' % args.port)
     server.start()
     logging.info('Listening on `localhost:%s`' % args.port)

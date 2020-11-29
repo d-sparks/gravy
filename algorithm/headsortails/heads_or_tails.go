@@ -254,6 +254,7 @@ func (b *HeadsOrTails) trade(
 	if b.mode == Training {
 		return nil, b.emitExamples(data)
 	}
+	// Note: Inference is not implemented in Golang. Use the python algorithm (./heads_or_tails.py) for inference.
 	return nil, nil
 }
 
