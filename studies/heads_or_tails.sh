@@ -11,7 +11,10 @@ go run cmd/supervisor/main.go \
 
 # Algorithms
 python3 \
-   algorithm/headsortails/heads_or_tails.py &
+  algorithm/headsortails/heads_or_tails.py \
+  --id="headsortails" \
+  --port="17506" \
+  --model_dir="algorithm/headsortails/train/model" &
 
 # go run cmd/algorithm/headsortails/main.go \
 #   --id="headsortails" \

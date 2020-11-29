@@ -1,8 +1,11 @@
-import gravy
-
+import argparse
 import grpc
 import logging
 import math
+import os
+import pandas as pd
+import sklearn.metrics as metrics
+import tensorflow as tf
 
 from algorithm.proto import algorithm_io_pb2
 from algorithm.proto import algorithm_io_pb2_grpc
@@ -76,7 +79,7 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         z_market_252 = z_score_or_zero(
             market_price, market_stats.moving_averages[252], sigma_market_252)
 
-        return [z_vol_15, z_15, z_35, z_252, beta, sigma_market_15,
+        return [0.0, z_vol_15, z_15, z_35, z_252, beta, sigma_market_15,
                 sigma_market_35, sigma_market_252, z_market_15, z_market_35,
                 z_market_252]
 
@@ -94,7 +97,18 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
 
         return
 
-    def __init__(self, id):
+    def test(self, test_data_path):
+        """
+        Evaluate the model on the test data and print a small summary.
+        """
+        hot_features = pd.read_csv(test_data_path).fillna(0.0)
+        hot_labels = hot_features.pop('result').astype(int)
+        hot_preds = self.model.predict(hot_features)
+
+        fpr, tpr, _ = metrics.roc_curve(hot_labels, hot_preds)
+        logging.info('Model loaded with %f AUC.' % metrics.auc(fpr, tpr))
+
+    def __init__(self, id, model_dir, test_data_path):
         """
         Constructor for heads or tails model.
         """
@@ -107,6 +121,9 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
         self.id = id
         self.registrar = Registrar()
         self.num_results = 0
+        self.model = tf.keras.models.load_model(model_dir)
+
+        self.test(test_data_path)
 
     def Execute(self, input, context):
         """
@@ -132,17 +149,31 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
     id = None
     registrar = None
     num_results = 0
+    model = None
 
 
 if __name__ == '__main__':
-    id = 'headsortails'
-    port = '17506'
-    # model_dir
+    parser = argparse.ArgumentParser(description='Heads or Tails algorithm.')
+    parser.add_argument('--id', type=str, help='Algorithm name',
+                        default='headsortails', required=False)
+    parser.add_argument('--port', type=str, help='Serving port',
+                        default='17506', required=False)
+    parser.add_argument('--model_dir', type=str, help='Model directory',
+                        default='algorithm/headsortails/train/model',
+                        required=False)
+    parser.add_argument(
+        '--test_data', type=str, help='Evaluate model on data.',
+        default='algorithm/headsortails/train/data/2005_to_2015_data.csv',
+        required=False)
+    args = parser.parse_args()
+
+    # model_dir = os.path.join(os.getcwd(), args.model_dir)
+    # data_file = os.path.join(os.getcwd(), args.test_on_data)
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     algorithm_io_pb2_grpc.add_AlgorithmServicer_to_server(
-        HeadsOrTails(id), server)
-    server.add_insecure_port('[::]:%s' % port)
+        HeadsOrTails(args.id, args.model_dir, args.test_data), server)
+    server.add_insecure_port('[::]:%s' % args.port)
     server.start()
-    logging.info('Listening on `localhost:%s`' % port)
+    logging.info('Listening on `localhost:%s`' % args.port)
     server.wait_for_termination()
