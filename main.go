@@ -72,7 +72,7 @@ func main() {
 	req.Algorithms = parseAlgorithmSpecOrDie(*algorithms)
 
 	// Start supervisor and send request.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2.0*time.Hour)
 	defer cancel()
 	_, err = registrar.Supervisor.SynchronousDailySim(ctx, &req)
 	fatalIfErr(err)

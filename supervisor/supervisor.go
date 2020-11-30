@@ -48,11 +48,12 @@ type S struct {
 
 	// This is the source of truth. If trading live, S is in charge of keeping these up to date with the broker or
 	// exchange.
-	portfolios    map[string]*supervisor_pb.Portfolio
-	alpha         map[string]*alpha.Rolling
-	mean          map[string]*mean.Rolling
-	meanReturn    map[string]*mean.Rolling
-	benchmarkMean *mean.Rolling
+	portfolios       map[string]*supervisor_pb.Portfolio
+	alpha            map[string]*alpha.Rolling
+	mean             map[string]*mean.Rolling
+	meanReturn       map[string]*mean.Rolling
+	marketMean       *mean.Rolling
+	marketMeanReturn *mean.Rolling
 
 	// Pending orders. For intraday, we may want orders to persist across ticks.
 	pendingOrders []*supervisor_pb.Order
@@ -177,7 +178,7 @@ func (s *S) logOrder(
 func (s *S) handleOrder(
 	tradingDate *timestamp_pb.Timestamp,
 	order *supervisor_pb.Order,
-	dailyPrices *dailyprices_pb.DailyPrices,
+	dailyPrices *dailyprices_pb.DailyData,
 ) bool {
 	// Check if the portfolio has enough of the stock to sell or enough USD to cover the limit price of the order.
 	algorithmID := order.GetAlgorithmId().GetAlgorithmId()
@@ -186,15 +187,18 @@ func (s *S) handleOrder(
 	amountHeld, holding := portfolio.GetStocks()[ticker]
 	if order.GetVolume() < 0 && (!holding || amountHeld < order.GetVolume()) {
 		// Don't have enough of the stock to sell.
+		s.logOrder(tradingDate, algorithmID, false, "NO_UNITS", order.GetVolume(), order.GetLimit(), ticker)
 		return false
 	} else if order.GetVolume()*order.GetLimit() > portfolio.GetUsd() {
 		// Don't have enough money to pay for the stocks.
+		s.logOrder(tradingDate, algorithmID, false, "NO_CASH", order.GetVolume(), order.GetLimit(), ticker)
 		return false
 	}
 
-	prices, ok := dailyPrices.GetStockPrices()[ticker]
+	prices, ok := dailyPrices.GetPrices()[ticker]
 	if !ok {
 		// This stock isn't on the market.
+		s.logOrder(tradingDate, algorithmID, false, "NOT_LISTED", order.GetVolume(), order.GetLimit(), ticker)
 		return false
 	}
 	open, close := prices.GetOpen(), prices.GetClose()
@@ -215,6 +219,7 @@ func (s *S) handleOrder(
 		return true
 	}
 
+	s.logOrder(tradingDate, algorithmID, false, "BAD_LIMIT", order.GetVolume(), price, ticker)
 	// TODO: Handle the case of non-expiring orders.
 	return false
 }
@@ -223,7 +228,7 @@ func (s *S) handleOrder(
 func (s *S) fillPendingOrders(
 	ctx context.Context,
 	tradingDate *timestamp_pb.Timestamp,
-) (*dailyprices_pb.DailyPrices, error) {
+) (*dailyprices_pb.DailyData, error) {
 	pricesReq := &dailyprices_pb.Request{Timestamp: tradingDate, Version: 0}
 	tradingPrices, err := s.registrar.DailyPrices.Get(ctx, pricesReq)
 	if err != nil {
@@ -242,7 +247,7 @@ func (s *S) fillPendingOrders(
 func (s *S) closeDelistedPositions(
 	ctx context.Context,
 	algorithmDate *timestamp_pb.Timestamp,
-	tradingPrices *dailyprices_pb.DailyPrices,
+	tradingPrices *dailyprices_pb.DailyData,
 ) error {
 	// Get prices as the algorithm is aware.
 	var pricesReq dailyprices_pb.Request
@@ -255,10 +260,10 @@ func (s *S) closeDelistedPositions(
 
 	// Find stocks the algorithm was holding but aren't in the tradingPrices.
 	delistings := map[string]float64{}
-	for ticker := range algorithmPrices.GetStockPrices() {
-		_, ok := tradingPrices.GetStockPrices()[ticker]
+	for ticker := range algorithmPrices.GetPrices() {
+		_, ok := tradingPrices.GetPrices()[ticker]
 		if !ok {
-			delistings[ticker] = algorithmPrices.GetStockPrices()[ticker].GetClose()
+			delistings[ticker] = algorithmPrices.GetPrices()[ticker].GetClose()
 		}
 	}
 
@@ -347,7 +352,7 @@ func (s *S) setupOutput(dir string) (closer func(), err error) {
 }
 
 // logTick logs data for a tick to the gravy log.
-func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.DailyPrices) error {
+func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.DailyData) error {
 	// Convert to native timestamp.
 	nativeTime, err := ptypes.Timestamp(timestamp)
 	if err != nil {
@@ -358,7 +363,7 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	var cols []string = make([]string, 4*len(s.algorithmsOutOrder)+1)
 	cols[0] = nativeTime.Format("2006-01-02")
 	cols[1] = "0.0"
-	if stockPrices, ok := prices.GetStockPrices()["SPY"]; ok {
+	if stockPrices, ok := prices.GetPrices()["SPY"]; ok {
 		cols[1] = fmt.Sprintf("%f", stockPrices.GetClose())
 	}
 	for i, algorithmID := range s.algorithmsOutOrder {
@@ -391,35 +396,41 @@ func (s *S) setupMetrics() {
 	s.mean = map[string]*mean.Rolling{}
 	s.meanReturn = map[string]*mean.Rolling{}
 	s.alpha = map[string]*alpha.Rolling{}
-	s.benchmarkMean = mean.NewRolling(252)
+	s.marketMean = mean.NewRolling(252)
+	s.marketMeanReturn = mean.NewRolling(252)
 	for _, algorithmID := range s.algorithmsOutOrder {
 		s.mean[algorithmID] = mean.NewRolling(252)
 		s.meanReturn[algorithmID] = mean.NewRolling(252)
-		s.alpha[algorithmID] = alpha.NewRolling(s.meanReturn[algorithmID], s.benchmarkMean, 252, 0.0)
+		s.alpha[algorithmID] = alpha.NewRolling(s.meanReturn[algorithmID], s.marketMeanReturn, 252, 0.0)
 	}
 }
 
 // updateMetrics updates the mean, mean return, and alpha metrics for each algorithm.
-func (s *S) updateMetrics(prices *dailyprices_pb.DailyPrices) {
-	// Record benchmark.
-	s.benchmarkMean.Observe(prices.GetBenchmark())
+func (s *S) updateMetrics(prices *dailyprices_pb.DailyData) {
+	// Record market benchmark.
+	if spyPrices, ok := prices.GetPrices()["SPY"]; ok && spyPrices.GetClose() > 0.0 {
+		spy0 := s.marketMean.OldestObservation()
+		spy := spyPrices.GetClose()
+		s.marketMean.Observe(spy)
+		s.marketMeanReturn.Observe(gravy.RelativePerfOrZero(spy, spy0))
+	} else {
+		s.marketMean.Observe(s.marketMean.Value(252))
+		s.marketMeanReturn.Observe(s.marketMeanReturn.Value(252))
+	}
 
 	// Record each algorithms metrics.
 	for _, algorithmID := range s.algorithmsOutOrder {
 		// Record value.
-		val0 := s.mean[algorithmID].OldestValue()
+		val0 := s.mean[algorithmID].OldestObservation()
 		val := gravy.PortfolioValue(s.portfolios[algorithmID], prices)
 		s.mean[algorithmID].Observe(val)
 
 		// Record return.
-		perf := 0.0
-		if val0 > 0.0 {
-			perf = (val - val0) / val0
-		}
+		perf := gravy.RelativePerfOrZero(val, val0)
 		s.meanReturn[algorithmID].Observe(perf)
 
 		// Record alpha.
-		s.alpha[algorithmID].Observe(perf, prices.GetBenchmark())
+		s.alpha[algorithmID].Observe(perf, s.marketMeanReturn.MostRecentObservation())
 	}
 }
 
@@ -464,9 +475,18 @@ func (s *S) SynchronousDailySim(
 	if err != nil {
 		return nil, fmt.Errorf("Error getting trading dates: %s", err.Error())
 	}
+	if len(tradingDates.GetTimestamps()) == 0 {
+		return nil, fmt.Errorf("Empty trading date range.")
+	}
 
 	// Set up the metrics.
 	s.setupMetrics()
+
+	// Fill empty orders at first trading date, causing the dailyprices service to "warmup" in case no algorithms
+	// get prices on the first trading day (which is necessary for some metrics).
+	if _, err := s.fillPendingOrders(ctx, tradingDates.GetTimestamps()[0]); err != nil {
+		return nil, err
+	}
 
 	// Simulate over the trading dates.
 	for i := 1; i < len(tradingDates.GetTimestamps()); i++ {

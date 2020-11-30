@@ -36,6 +36,9 @@ func (r *R) Close() {
 	for _, conn := range r.connections {
 		conn.Close()
 	}
+	for _, conn := range r.algorithmConnections {
+		conn.Close()
+	}
 }
 
 // openSupervisorConnection opens a connection to the supervisor
