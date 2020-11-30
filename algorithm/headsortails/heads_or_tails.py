@@ -79,8 +79,7 @@ def portfolio_value(portfolio, prices):
     """
     value = portfolio.usd
     for ticker, units in portfolio.stocks.items():
-        if ticker in prices:
-            value += prices[ticker].close
+        value += units * prices[ticker].close
     return value
 
 
@@ -92,7 +91,7 @@ def orders_for_target_units(algorithm_id, ticker, target_units, limit):
     """
     orders = []
     placed = 0
-    next_batch = int(target_units * 0.9)
+    next_batch = max(1, int(target_units * 0.9))
     while True:
         if placed + next_batch > target_units:
             if next_batch == 1:

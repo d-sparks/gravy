@@ -27,5 +27,5 @@ go run cmd/algorithm/buygoodandhold/main.go \
 go run main.go \
   --start="2005-02-25" \
   --end="2006-06-25" \
-  --output_dir="/tmp/fizz" \
+  --output_dir="${OUTPUT_DIR}" \
   --algorithms="buyandhold@localhost:17502,buyspy@localhost:17503,buygoodandhold@localhost:17504"

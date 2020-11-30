@@ -15,12 +15,12 @@ go run cmd/algorithm/headsortails/main.go \
   --port=17505 \
   --mode="train" \
   --sample_ratio=0.02 \
-  --output="${OUTPUT_DIR}/headsortails_data.csv" \
-  > "${OUTPUT_DIR}/headsortailsstdout" &
+  --output="${OUTPUT_DIR}/headsortails_data.csv" &
+  # > "${OUTPUT_DIR}/headsortailsstdout" &
 
 # Run
 go run main.go \
   --start="2005-02-25" \
   --end="2015-02-25" \
-  --output_dir="/tmp/fizz" \
+  --output_dir="${OUTPUT_DIR}" \
   --algorithms="headsortails@localhost:17505"

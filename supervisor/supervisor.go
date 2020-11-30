@@ -187,15 +187,18 @@ func (s *S) handleOrder(
 	amountHeld, holding := portfolio.GetStocks()[ticker]
 	if order.GetVolume() < 0 && (!holding || amountHeld < order.GetVolume()) {
 		// Don't have enough of the stock to sell.
+		s.logOrder(tradingDate, algorithmID, false, "NO_UNITS", order.GetVolume(), order.GetLimit(), ticker)
 		return false
 	} else if order.GetVolume()*order.GetLimit() > portfolio.GetUsd() {
 		// Don't have enough money to pay for the stocks.
+		s.logOrder(tradingDate, algorithmID, false, "NO_CASH", order.GetVolume(), order.GetLimit(), ticker)
 		return false
 	}
 
 	prices, ok := dailyPrices.GetPrices()[ticker]
 	if !ok {
 		// This stock isn't on the market.
+		s.logOrder(tradingDate, algorithmID, false, "NOT_LISTED", order.GetVolume(), order.GetLimit(), ticker)
 		return false
 	}
 	open, close := prices.GetOpen(), prices.GetClose()
@@ -216,6 +219,7 @@ func (s *S) handleOrder(
 		return true
 	}
 
+	s.logOrder(tradingDate, algorithmID, false, "BAD_LIMIT", order.GetVolume(), price, ticker)
 	// TODO: Handle the case of non-expiring orders.
 	return false
 }

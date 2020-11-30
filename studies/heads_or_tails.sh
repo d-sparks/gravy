@@ -29,5 +29,5 @@ go run cmd/algorithm/buyspy/main.go \
 go run main.go \
   --start="2005-02-25" \
   --end="2006-02-02" \
-  --output_dir="/tmp/fizz" \
+  --output_dir="${OUTPUT_DIR}" \
   --algorithms="headsortails@localhost:17506,buyandhold@localhost:17502,buyspy@localhost:17503"
