@@ -44,12 +44,25 @@ message Prices {
  }
 
 // next id: 5
+message PairStats {
+  string first = 1;
+  string second = 2;
+
+  double covariance = 3;
+  double correlation = 4;
+}
+
+// next id: 6
 message DailyData {
   google.protobuf.Timestamp timestamp = 2;
   int32 version = 3;
 
+  // Per security measurements.
   map<string, Prices> prices = 1;
   map<string, Stats> stats = 4;
+
+  // Pair measurements, sorted by descending correlation.
+  repeated PairStats pair_stats = 5;
 }
 
 message Range {

@@ -29,7 +29,7 @@ func TestCovariance(t *testing.T) {
 	mux /= float64(len(x))
 	muy /= float64(len(y))
 
-	// Calculate covariance both way.s
+	// Calculate covariance both ways.
 	cov := 0.0
 	for i := 0; i < 10000; i++ {
 		cov += (x[i]/x[0] - mux) * (y[i]/y[0] - muy)

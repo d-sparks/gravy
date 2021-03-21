@@ -22,6 +22,6 @@ go run cmd/algorithm/buyspy/main.go \
 # Run
 go run main.go \
   --start="2005-02-25" \
-  --end="2005-06-25" \
+  --end="2007-02-25" \
   --output_dir="${OUTPUT_DIR}" \
   --algorithms="buyandhold@localhost:17502,buyspy@localhost:17503"

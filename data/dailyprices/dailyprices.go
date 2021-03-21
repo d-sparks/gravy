@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bradfitz/slice"
 	"github.com/d-sparks/gravy/data/alpha"
+	"github.com/d-sparks/gravy/data/covariance"
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	"github.com/d-sparks/gravy/data/mean"
 	"github.com/d-sparks/gravy/data/variance"
@@ -29,6 +31,11 @@ type Stats struct {
 	variance             *variance.Streaming
 }
 
+// PairStats are things we measure for pairs of tickers.
+type PairStats struct {
+	covariance *covariance.Streaming
+}
+
 // Server implements dailyprices_pb.DataServer.
 type Server struct {
 	dailyprices_pb.UnimplementedDataServer
@@ -45,7 +52,8 @@ type Server struct {
 	timeIndex map[time.Time]int
 
 	// Measurements
-	stats map[string]*Stats
+	stats     map[string]*Stats
+	pairStats map[string]map[string]*PairStats
 
 	// Tracking
 	firstSeen    map[string]time.Time
@@ -154,6 +162,57 @@ func (s *Server) updateStatsForTicker(
 	return perf
 }
 
+// validTickerPair returns true if the first string is less than the second string and the second string is not equal to
+// the first string + "_".
+func validTickerPair(first, second string) bool {
+	return first < second && second != first+"_"
+}
+
+// updateStatsForTickerPair updates the stats for the given ticker pair.
+func (s *Server) updateStatsForTickerPair(
+	tickTime time.Time,
+	ticker string,
+	otherTicker string,
+	data *dailyprices_pb.DailyData,
+) {
+	tickerPrice := data.GetPrices()[ticker].GetClose()
+	otherTickerPrice := data.GetPrices()[otherTicker].GetClose()
+	if _, ok := s.pairStats[ticker][otherTicker]; !ok {
+		s.pairStats[ticker][otherTicker] = &PairStats{covariance: covariance.NewStreaming()}
+	}
+	s.pairStats[ticker][otherTicker].covariance.Observe(tickerPrice, otherTickerPrice)
+}
+
+// buildOutputForTickerPairs builds output for ticker pairs. In particular, calculates the correlation and sorts the
+// output by descending correlation.
+func (s *Server) buildOutputForTickerPairs(data *dailyprices_pb.DailyData) {
+	for ticker := range s.firstSeen {
+		for otherTicker := range s.firstSeen {
+			if !validTickerPair(ticker, otherTicker) {
+				continue
+			}
+			covariance := s.pairStats[ticker][otherTicker].covariance
+			if covariance.NumObservations() < 100.0 {
+				continue
+			}
+			data.PairStats = append(data.PairStats, &dailyprices_pb.PairStats{
+				First:       ticker,
+				Second:      otherTicker,
+				Covariance:  covariance.Value(),
+				Correlation: covariance.CorrelationValue(),
+			})
+		}
+	}
+
+	slice.Sort(data.PairStats, func(i, j int) bool {
+		return data.PairStats[i].Correlation > data.PairStats[j].Correlation
+	})
+
+	if len(data.PairStats) > 2000 {
+		data.PairStats = append(data.PairStats[:1000], data.PairStats[len(data.PairStats)-1000:]...)
+	}
+}
+
 // updateStats updates the various tracked rolling averages at the given time. Also updates the given prices pointer.
 func (s *Server) updateStats(tickTime time.Time, data *dailyprices_pb.DailyData) error {
 	// Update firstSeen if this is the first time seeing this ticker.
@@ -192,15 +251,29 @@ func (s *Server) updateStats(tickTime time.Time, data *dailyprices_pb.DailyData)
 				15: variance.NewRolling(stats.movingMeanVolume, 15),
 			}
 			stats.variance = variance.NewStreaming()
+			s.pairStats[ticker] = map[string]*PairStats{}
 		}
 	}
 
 	// Update averages first for SPY, the benchmark, as it is necessary for the comparisons that are made to it.
 	benchmarkPerf := s.updateStatsForTicker(tickTime, "SPY", 0.0, data)
 	for ticker := range s.firstSeen {
-		// TODO: Skip SPY!!!
+		if ticker == "SPY" {
+			continue
+		}
 		s.updateStatsForTicker(tickTime, ticker, benchmarkPerf, data)
 	}
+	for ticker := range s.firstSeen {
+		for otherTicker := range s.firstSeen {
+			if !validTickerPair(ticker, otherTicker) {
+				continue
+			}
+			s.updateStatsForTickerPair(tickTime, ticker, otherTicker, data)
+		}
+	}
+
+	// Builds the output for ticker pairs.
+	s.buildOutputForTickerPairs(data)
 
 	return nil
 }
@@ -303,6 +376,7 @@ func (s *Server) NewSession(
 	s.firstSeen = map[string]time.Time{}
 	s.lastSeen = map[string]time.Time{}
 	s.missingDates = map[string]map[time.Time]struct{}{}
+	s.pairStats = map[string]map[string]*PairStats{}
 
 	return &dailyprices_pb.NewSessionResponse{}, nil
 }

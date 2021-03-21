@@ -1,6 +1,9 @@
 package covariance
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // Covariance implements this streaming algorithm for covariance I found on Wikipedia:
 //
@@ -25,11 +28,14 @@ type Streaming struct {
 
 	normx float64
 	normy float64
+
+	varX *Streaming
+	varY *Streaming
 }
 
 // NewStreaming creates a new covariance.
 func NewStreaming() *Streaming {
-	return &Streaming{}
+	return &Streaming{varX: &Streaming{varX: nil, varY: nil}, varY: &Streaming{varX: nil, varY: nil}}
 }
 
 // Observe observes two values if the observation hasn't been recorded at this time.
@@ -50,6 +56,14 @@ func (s *Streaming) Observe(x float64, y float64) error {
 	s.meanxnorm += dx / s.n
 	s.meanynorm += dy / s.n
 	s.c += dx * dy
+
+	// Update variances.
+	if s.varX != nil {
+		s.varX.Observe(x, x)
+	}
+	if s.varY != nil {
+		s.varY.Observe(y, y)
+	}
 
 	return nil
 }
@@ -81,4 +95,14 @@ func (s *Streaming) UncorrectedRelativeValue() float64 {
 		return s.c
 	}
 	return s.c / s.n
+}
+
+// CorrelationValue returns the correlation value.
+func (s *Streaming) CorrelationValue() float64 {
+	return s.Value() / math.Sqrt((s.varX.Value() * s.varY.Value()))
+}
+
+// NumObservations returns the number of observations that have been recorded.
+func (s *Streaming) NumObservations() float64 {
+	return s.n
 }
