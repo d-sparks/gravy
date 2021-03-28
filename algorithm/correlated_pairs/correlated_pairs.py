@@ -24,7 +24,8 @@ from supervisor.proto import supervisor_pb2
 
 """
 Don't trade until we've seen `min_results` examples, so we can build confidence
-in the correlations.
+in the correlations. Currently not used as we won't get correlation data until
+there have been 100 observations anyway.
 """
 min_results = 100
 """
@@ -136,13 +137,43 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
                      pair_stats.correlation, daily_data))
         return output
 
-    def filter_candidate_pairs(self, candidate_pairs):
+    def filter_candidate_pairs(self, candidate_pairs, portfolio):
         """
-        Filters for candidate pairs that (1) aren't already in a position, and
-        (2) pass the quality criteria.
-        TODO: Implement.
+        Filters for candidate pairs that (1) are positively correlated, (2)
+        aren't already in a position, and (3) pass the quality criteria.
         """
-        return candidate_pairs
+        filtered_pairs = []
+        # If we're already in a position or the stocks have negative
+        # correlation, skip.
+        for candidate_pair in candidate_pairs:
+            if (candidate_pair.correlation <= 0.0 or
+                candidate_pair.first_ticker in self.assets_in_pairs or
+                    candidate_pair.second_ticker in self.assets_in_pairs):
+                continue
+            filtered_pairs.append(candidate_pair)
+        if len(filtered_pairs) == 0:
+            return []
+        # TODO: duplicate in both orders (first, second & second, first).
+        # Filter for models with sufficient prediction.
+        features = [pair.to_vector() for pair in filtered_pairs]
+        predictions = self.model.predict(features)
+        # threshold determined in Correlated_Pairs.ipynb (0.525 precision in
+        # test.) Sort by prediction value.
+        pairs_and_preds = list(zip(filtered_pairs, predictions))
+        pairs_and_preds = sorted(pairs_and_preds, key=lambda x: -x[1])
+        filtered_pairs = [
+            pair_and_pred[0] for pair_and_pred in pairs_and_preds
+            if pair_and_pred[1] >= 0.30810546875]
+        # Remove conflicting pairs.
+        earlier_tickers = set()
+        nonconflicting_pairs = []
+        for pair in filtered_pairs:
+            if (pair.first_ticker not in earlier_tickers and
+                    pair.second_ticker not in earlier_tickers):
+                nonconflicting_pairs.append(pair)
+                earlier_tickers.add(pair.first_ticker)
+                earlier_tickers.add(pair.second_ticker)
+        return nonconflicting_pairs
 
     def ground_truth(self, candidate_pair, daily_data):
         """
@@ -186,20 +217,97 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
             self.write_training_examples(self.examples[0], daily_data)
         self.examples.append(candidate_pairs)
 
+    def maybe_build_expiring_orders(self, portfolio, daily_data):
+        """
+        Make sell orders for the oldest pairs held. Also removes these pairs
+        from the `assets_in_pairs` set.
+        """
+        if len(self.pairs) < period:
+            return []
+        orders = []
+        expiring_pairs = self.pairs[0]
+        for pair in expiring_pairs:
+            # Sell half of the first asset.
+            first_ticker = pair.first_ticker
+            first_held = portfolio.stocks[first_ticker]
+            # TODO: Might want to use (first_held // 2) + 1?
+            first_units_to_sell = first_held // 2
+            orders += [supervisor_pb2.Order(algorithm_id=self.algorithm_id,
+                                            ticker=first_ticker,
+                                            volume=first_units_to_sell,
+                                            stop=0.0)]
+            # Invest this in the second asset.
+            target = \
+                first_units_to_sell * daily_data.prices[first_ticker].close
+            second_ticker = pair.second_ticker
+            second_units_to_buy = math.floor(
+                target / daily_data.prices[second_ticker].close)
+            while second_units_to_buy > 0:
+                next_chunk = max(math.floor(0.9 * second_units_to_buy), 1.0)
+                orders += [supervisor_pb2.Order(algorithm_id=self.algorithm_id,
+                                                ticker=second_ticker,
+                                                volume=-next_chunk,
+                                                stop=0.0)]
+                second_units_to_buy -= next_chunk
+            # Remove these assets from the `assets_in_pairs` set.
+            self.assets_in_pairs.remove(first_ticker)
+            self.assets_in_pairs.remove(second_ticker)
+        return orders
+
+    def build_pair_orders(self, pairs, portfolio, daily_data):
+        """
+        Builds orders to buy/sell as appropriate in the given pair. Also updates
+        the `assets_in_pairs` set.
+        """
+        orders = []
+        for pair in pairs:
+            # Sell all of the second asset.
+            second_ticker = pair.second_ticker
+            second_units_to_sell = portfolio.stocks[second_ticker]
+            orders += portfolio_helpers.sell_stocks_market_order(
+                self.algorithm_id, [second_ticker], portfolio)
+            # Invest this in the first asset.
+            target = \
+                second_units_to_sell * daily_data.prices[second_ticker].close
+            first_units_to_buy = math.floor(
+                target / daily_data.prices[pair.first_ticker].close)
+            # Break orders up in case there are a large number of target stocks.
+            while first_units_to_buy > 0:
+                next_chunk = max(math.floor(0.9 * first_units_to_buy), 1.0)
+                orders += [supervisor_pb2.Order(algorithm_id=self.algorithm_id,
+                                                ticker=pair.first_ticker,
+                                                volume=next_chunk,
+                                                stop=1.0)]
+                first_units_to_buy -= next_chunk
+            # Record in the `assets_in_pairs` set.
+            self.assets_in_pairs.add(pair.first_ticker)
+            self.assets_in_pairs.add(second_ticker)
+        self.pairs.append(pairs)
+        return orders
+
     def trade(self, portfolio, daily_data):
         """
         Tells the algorithm to trade. Mostly unimplemented.
+        TODO: Try building expiring orders in before calculating candidate
+              pairs. We can start a new pair with a given asset while closing
+              an old pair.
         """
+        # Initial investment.
+        if not self.initial_investment:
+            self.initial_investment = True
+            return portfolio_helpers.invest_approximately_uniformly(
+                self.algorithm_id, portfolio, daily_data)
+        # Nominal investment strategy.
         candidate_pairs = self.get_candidate_pairs(portfolio, daily_data)
         self.maybe_process_training_data(candidate_pairs, daily_data)
-        candidate_pairs = self.filter_candidate_pairs(candidate_pairs)
-        # Close expiring pairs.
-        # TODO: Implement this.
-        # Create new long / short pairs.
-        # TODO: Implement this.
-        return []
+        candidate_pairs = self.filter_candidate_pairs(candidate_pairs,
+                                                      portfolio)
+        orders = self.maybe_build_expiring_orders(portfolio, daily_data)
+        orders += self.build_pair_orders(candidate_pairs,
+                                         portfolio, daily_data)
+        return orders
 
-    def __init__(self, id, export_training_data, training_data_path):
+    def __init__(self, id, model_dir, export_training_data, training_data_path):
         """
         Constructor for correlated pairs model.
         """
@@ -213,6 +321,8 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
         self.assets_in_pairs = set()
         self.pairs = collections.deque(maxlen=period)
         self.registrar = Registrar()
+        self.model = tf.keras.models.load_model(model_dir)
+        self.initial_investment = False
         # For training.
         self.export_training_data = export_training_data
         if export_training_data:
@@ -257,6 +367,9 @@ if __name__ == '__main__':
                         default='headsortails', required=False)
     parser.add_argument('--port', type=str, help='Serving port',
                         default='17507', required=False)
+    parser.add_argument('--model_dir', type=str, help='Model directory',
+                        default='algorithm/correlated_pairs/train/model',
+                        required=False)
     parser.add_argument('--export_training_data', type=bool,
                         help='Export training data', default=False,
                         required=False)
@@ -268,7 +381,7 @@ if __name__ == '__main__':
     # Serve
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     algorithm_io_pb2_grpc.add_AlgorithmServicer_to_server(
-        CorrelatedPairs(args.id, args.export_training_data,
+        CorrelatedPairs(args.id, args.model_dir, args.export_training_data,
                         args.training_data_path),
         server)
     server.add_insecure_port('[::]:%s' % args.port)
