@@ -116,6 +116,50 @@ class TestInvestApproximatelyUniformly(unittest.TestCase):
         self.assertLess(657.0, total_limit)
         self.assertLess(total_limit, 664.0)
 
+    def test_partial(self):
+        # Inputs
+        portfolio = json_format.Parse(json.dumps({
+            "usd": 100,
+            "stocks": {
+                "APPL": 1.0,
+            }
+        }), supervisor_pb2.Portfolio())
+        daily_data = json_format.Parse(json.dumps({
+            "prices": {
+                "MSFT": {"close": 25.0},
+                "GOOG": {"close": 25.0},
+                "FB": {"close": 2.5},
+                "APPL": {"close": 33.0},
+            },
+        }), daily_prices_pb2.DailyData())
+        # Expected outputs
+        expected_volume = {
+            "FB": 13.0,
+            "GOOG": 1.0,
+        }
+        expected_limit = {
+            "FB": 2.525,
+            "GOOG": 25.25,
+        }
+        # Create orders to be tested
+        orders = portfolio_helpers.invest_approximately_uniformly_in_targets(
+            test_algorithm_id, portfolio, daily_data, ["GOOG", "FB"], 80.0)
+        volume = dict()
+        limit = dict()
+        total_limit = 0.0
+        for order in orders:
+            if order.ticker not in volume:
+                volume[order.ticker] = 0.0
+            volume[order.ticker] += order.volume
+            limit[order.ticker] = order.limit
+            total_limit += order.limit * order.volume
+        # Assertions
+        self.assertEqual(len(orders), 2)
+        self.assertEqual(volume, expected_volume)
+        self.assertEqual(limit, expected_limit)
+        self.assertLess(58, total_limit)
+        self.assertLess(total_limit, 80.0)
+
 
 if __name__ == '__main__':
     unittest.main()

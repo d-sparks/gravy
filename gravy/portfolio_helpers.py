@@ -61,7 +61,8 @@ def orders_for_target_units(algorithm_id, ticker, target_units, limit):
 
 
 def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
-                                              daily_data, targets):
+                                              daily_data, targets,
+                                              investment_limit=None):
     """
     Attempt to approximately invest uniformly across all assets.
     NOTE: Unlike the Go version, this function will work on a portfolio that is
@@ -70,8 +71,11 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
     if len(targets) == 0:
         return []
     total_limit_of_orders = 0.0
+    if investment_limit == None:
+        investment_limit = portfolio.usd
+    num_assets = len(set([ticker for ticker in daily_data.prices]))
     target = 0.99 * portfolio_value(portfolio,
-                                    daily_data.prices) / len(targets)
+                                    daily_data.prices) / num_assets
     target_investments = dict()
     # Note: this will represent a total limit of
     #
@@ -92,6 +96,9 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
             target_investments[ticker] = 0.0
             continue
         limit = 1.01 * prices.close
+        if total_limit_of_orders + volume * limit >= investment_limit:
+            target_investments[ticker] = 0.0
+            continue
         orders.append(supervisor_pb2.Order(algorithm_id=algorithm_id,
                                            ticker=ticker, volume=volume,
                                            limit=limit))
@@ -108,7 +115,7 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
                 continue
             current_target = target_investments[ticker]
             close_price = prices.close
-            if close_price + total_limit_of_orders > portfolio.usd:
+            if close_price + total_limit_of_orders >= investment_limit:
                 continue
             hypothetical_delta = abs(close_price + current_target - target)
             current_delta = abs(current_target - target)
@@ -131,10 +138,11 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
     return orders
 
 
-def invest_approximately_uniformly(algorithm_id, portfolio, daily_data):
+def invest_approximately_uniformly(algorithm_id, portfolio, daily_data,
+                                   investment_limit=None):
     """
     Invest approximately uniformly in *all* assets.
     """
     targets = set([ticker for ticker in daily_data.prices])
     return invest_approximately_uniformly_in_targets(
-        algorithm_id, portfolio, daily_data, targets)
+        algorithm_id, portfolio, daily_data, targets, investment_limit)
