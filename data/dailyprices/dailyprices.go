@@ -82,6 +82,8 @@ func NewServer(
 	server.tradingDatesTableName = tradingDatesTable
 	server.cache = map[int32]map[time.Time]*dailyprices_pb.DailyData{}
 
+	go server.RunDebugServer(8080)
+
 	return &server, nil
 }
 
@@ -186,6 +188,7 @@ func (s *Server) updateStatsForTickerPair(
 // buildOutputForTickerPairs builds output for ticker pairs. In particular, calculates the correlation and sorts the
 // output by descending correlation.
 func (s *Server) buildOutputForTickerPairs(data *dailyprices_pb.DailyData) {
+	allPairs := []*dailyprices_pb.PairStats{}
 	for ticker := range s.firstSeen {
 		for otherTicker := range s.firstSeen {
 			if !validTickerPair(ticker, otherTicker) {
@@ -195,7 +198,7 @@ func (s *Server) buildOutputForTickerPairs(data *dailyprices_pb.DailyData) {
 			if covariance.NumObservations() < 100.0 {
 				continue
 			}
-			data.PairStats = append(data.PairStats, &dailyprices_pb.PairStats{
+			allPairs = append(allPairs, &dailyprices_pb.PairStats{
 				First:       ticker,
 				Second:      otherTicker,
 				Covariance:  covariance.Value(),
@@ -204,13 +207,13 @@ func (s *Server) buildOutputForTickerPairs(data *dailyprices_pb.DailyData) {
 		}
 	}
 
-	slice.Sort(data.PairStats, func(i, j int) bool {
-		return data.PairStats[i].Correlation > data.PairStats[j].Correlation
-	})
+	slice.Sort(allPairs, func(i, j int) bool { return allPairs[i].Correlation > allPairs[j].Correlation })
 
-	if len(data.PairStats) > 2000 {
-		data.PairStats = append(data.PairStats[:1000], data.PairStats[len(data.PairStats)-1000:]...)
+	if len(allPairs) >= 2000 {
+		allPairs = append(allPairs[:1000], allPairs[len(allPairs)-1000:]...)
 	}
+	data.PairStats = make([]*dailyprices_pb.PairStats, len(allPairs))
+	copy(data.PairStats, allPairs)
 }
 
 // updateStats updates the various tracked rolling averages at the given time. Also updates the given prices pointer.
