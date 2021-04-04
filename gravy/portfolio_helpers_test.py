@@ -61,6 +61,61 @@ class TestInvestApproximatelyUniformly(unittest.TestCase):
         self.assertEqual(limit, expected_limit)
         self.assertLess(996.0, total_limit)
 
+    def test_many_stocks_some_already_held(self):
+        # Inputs
+        portfolio = json_format.Parse(json.dumps({
+            "usd": 664.0,
+            "stocks": {
+                "MSFT": 7.0,
+                "NVDA": 14.0,
+                "GOOG": 7.0,
+            }
+        }), supervisor_pb2.Portfolio())
+        daily_data = json_format.Parse(json.dumps({
+            "prices": {
+                "MSFT": {"close": 10.0},
+                "GOOG": {"close": 20.0},
+                "FB": {"close": 7.0},
+                "APPL": {"close": 150.0},
+                "NVDA": {"close": 9.0},
+                "GM": {"close": 0.50},
+                "FORD": {"close": 1.0},
+            },
+        }), daily_prices_pb2.DailyData())
+        # Expected outputs
+        expected_volume = {
+            "APPL": 1.0,
+            "FB": 20.0,
+            "FORD": 141.0,
+            "GM": 282.0,
+            "MSFT": 7.0,
+            "NVDA": 1.0,
+        }
+        expected_limit = {
+            "APPL": 151.5,
+            "FB": 7.07,
+            "FORD": 1.01,
+            "GM": 0.505,
+            "MSFT": 10.1,
+            "NVDA": 9.09,
+        }
+        # Create orders to be tested
+        orders = portfolio_helpers.invest_approximately_uniformly(
+            test_algorithm_id, portfolio, daily_data)
+        volume = dict()
+        limit = dict()
+        total_limit = 0.0
+        for order in orders:
+            volume[order.ticker] = order.volume
+            limit[order.ticker] = order.limit
+            total_limit += order.limit * order.volume
+        # Assertions
+        self.assertEqual(len(orders), 6)
+        self.assertEqual(volume, expected_volume)
+        self.assertEqual(limit, expected_limit)
+        self.assertLess(657.0, total_limit)
+        self.assertLess(total_limit, 664.0)
+
 
 if __name__ == '__main__':
     unittest.main()

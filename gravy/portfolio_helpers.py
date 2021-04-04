@@ -64,6 +64,8 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
                                               daily_data, targets):
     """
     Attempt to approximately invest uniformly across all assets.
+    NOTE: Unlike the Go version, this function will work on a portfolio that is
+          not all cash.
     """
     if len(targets) == 0:
         return []
@@ -85,8 +87,8 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
         prices = daily_data.prices[ticker]
         if ticker not in targets:
             continue
-        volume = math.floor(target / prices.close)
-        if volume == 0.0:
+        volume = math.floor(target / prices.close) - portfolio.stocks[ticker]
+        if volume <= 0.0:
             target_investments[ticker] = 0.0
             continue
         limit = 1.01 * prices.close
