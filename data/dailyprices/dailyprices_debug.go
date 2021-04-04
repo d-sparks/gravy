@@ -3,7 +3,7 @@ package dailyprices
 import (
 	"fmt"
 	"net/http"
-	_ "net/http/pprof"
+	// _ "net/http/pprof"	// For debug
 )
 
 func (s *Server) RunDebugServer(port int) {
@@ -11,7 +11,7 @@ func (s *Server) RunDebugServer(port int) {
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
-func HumanReadable(KBSize int) string {
+func humanReadable(KBSize int) string {
 	if KBSize > 1024 {
 		MBSize := KBSize / 1024
 		if MBSize > 1024 {
@@ -41,7 +41,7 @@ func (s *Server) HandleDebug(w http.ResponseWriter, r *http.Request) {
 	numAssets := len(s.stats)
 	fmt.Fprintf(w, "\n\n\tStats for:\t%d assets", numAssets)
 	const approximateKBPerAsset int = 55
-	fmt.Fprintf(w, "\n\tAprox mem:\t%s", HumanReadable(numAssets*approximateKBPerAsset))
+	fmt.Fprintf(w, "\n\tAprox mem:\t%s", humanReadable(numAssets*approximateKBPerAsset))
 
 	numPairStats := 0
 	for _, second := range s.pairStats {
@@ -49,7 +49,7 @@ func (s *Server) HandleDebug(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Fprintf(w, "\n\n\tPairStats:\t%d pairs of assets", numPairStats)
 	const approximateBytesPerPair int = 144
-	fmt.Fprintf(w, "\n\tApprox mem:\t%s", HumanReadable(numPairStats*approximateBytesPerPair/1024))
+	fmt.Fprintf(w, "\n\tApprox mem:\t%s", humanReadable(numPairStats*approximateBytesPerPair/1024))
 }
 
 /*
