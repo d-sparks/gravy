@@ -267,17 +267,17 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
             orders += portfolio_helpers.sell_stocks_market_order(
                 self.algorithm_id, [second_ticker], portfolio)
             # Invest this in the first asset.
-            target = \
-                second_units_to_sell * daily_data.prices[second_ticker].close
-            first_units_to_buy = math.floor(
-                target / daily_data.prices[pair.first_ticker].close)
+            second_price = daily_data.prices[second_ticker].close
+            target = second_units_to_sell * second_price
+            first_price = daily_data.prices[pair.first_ticker].close
+            first_units_to_buy = math.floor(target / first_price)
             # Break orders up in case there are a large number of target stocks.
             while first_units_to_buy > 0:
                 next_chunk = max(math.floor(0.9 * first_units_to_buy), 1.0)
                 orders += [supervisor_pb2.Order(algorithm_id=self.algorithm_id,
                                                 ticker=pair.first_ticker,
                                                 volume=next_chunk,
-                                                stop=1.0)]
+                                                limit=1.02*first_price)]
                 first_units_to_buy -= next_chunk
             # Record in the `assets_in_pairs` set.
             self.assets_in_pairs.add(pair.first_ticker)
@@ -296,7 +296,7 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
         if not self.initial_investment:
             self.initial_investment = True
             return portfolio_helpers.invest_approximately_uniformly(
-                self.algorithm_id, portfolio, daily_data)
+                self.algorithm_id, portfolio, daily_data, UP=1.02, DOWN=0.98)
         # Nominal investment strategy.
         candidate_pairs = self.get_candidate_pairs(portfolio, daily_data)
         self.maybe_process_training_data(candidate_pairs, daily_data)
@@ -305,6 +305,13 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
         orders = self.maybe_build_expiring_orders(portfolio, daily_data)
         orders += self.build_pair_orders(candidate_pairs,
                                          portfolio, daily_data)
+        remaining_limit = portfolio_helpers.remaining_limit(portfolio, orders)
+        uniform_targets = set([ticker for ticker in daily_data.prices
+                               if ticker not in self.assets_in_pairs])
+        orders += portfolio_helpers.invest_approximately_uniformly_in_targets(
+            self.algorithm_id, portfolio, daily_data, uniform_targets,
+            remaining_limit, UP=1.02, DOWN=0.98)
+        orders = portfolio_helpers.orders_sorted_descending(orders)
         return orders
 
     def __init__(self, id, model_dir, export_training_data, training_data_path):

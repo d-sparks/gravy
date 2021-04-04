@@ -161,5 +161,29 @@ class TestInvestApproximatelyUniformly(unittest.TestCase):
         self.assertLess(total_limit, 80.0)
 
 
+class TestOrdersSortedDescending(unittest.TestCase):
+
+    def test_happy_path(self):
+        orders = [
+            supervisor_pb2.Order(volume=5.0, limit=5.0),
+            supervisor_pb2.Order(volume=6.0, limit=8.0),
+            supervisor_pb2.Order(volume=7.0, limit=9.0),
+            supervisor_pb2.Order(volume=8.0, limit=2.0),
+            supervisor_pb2.Order(volume=-8.0, limit=2.0),
+            supervisor_pb2.Order(volume=-9.0, limit=3.0),
+        ]
+        sorted_orders = portfolio_helpers.orders_sorted_descending(orders)
+        for i in range(1, len(sorted_orders)):
+            prev_order = sorted_orders[i-1]
+            order = sorted_orders[i]
+            # Sells before buys.
+            self.assertFalse(prev_order.volume > 0.0 and order.volume <= 0.0)
+            if prev_order.volume <= 0.0:
+                continue
+            # Buys in descending order.
+            self.assertLess(order.limit * order.volume,
+                            prev_order.limit * prev_order.volume)
+
+
 if __name__ == '__main__':
     unittest.main()

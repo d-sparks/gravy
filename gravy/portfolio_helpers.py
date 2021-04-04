@@ -62,7 +62,8 @@ def orders_for_target_units(algorithm_id, ticker, target_units, limit):
 
 def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
                                               daily_data, targets,
-                                              investment_limit=None):
+                                              investment_limit=None,
+                                              UP=1.01, DOWN=0.99):
     """
     Attempt to approximately invest uniformly across all assets.
     NOTE: Unlike the Go version, this function will work on a portfolio that is
@@ -74,7 +75,7 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
     if investment_limit == None:
         investment_limit = portfolio.usd
     num_assets = len(set([ticker for ticker in daily_data.prices]))
-    target = 0.99 * portfolio_value(portfolio,
+    target = DOWN * portfolio_value(portfolio,
                                     daily_data.prices) / num_assets
     target_investments = dict()
     # Note: this will represent a total limit of
@@ -85,19 +86,18 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
     #   1.01 * 0.99 * portfolioValue =
     #   0.9999 * portfolioValue
     #
-    # Thus, the investment is safe.
+    # Thus, the investment is safe as long as UP * DOWN <= 1.
     orders = []
     for ticker in daily_data.prices:
+        target_investments[ticker] = 0.0
         prices = daily_data.prices[ticker]
-        if ticker not in targets:
+        if ticker not in targets or prices.close < 1e-4:
             continue
         volume = math.floor(target / prices.close) - portfolio.stocks[ticker]
         if volume <= 0.0:
-            target_investments[ticker] = 0.0
             continue
-        limit = 1.01 * prices.close
+        limit = UP * prices.close
         if total_limit_of_orders + volume * limit >= investment_limit:
-            target_investments[ticker] = 0.0
             continue
         orders.append(supervisor_pb2.Order(algorithm_id=algorithm_id,
                                            ticker=ticker, volume=volume,
@@ -128,7 +128,7 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
             # No improvement can be made.
             break
         # Place an order for a next_ticker.
-        limit = 1.01 * next_price
+        limit = UP * next_price
         orders.append(supervisor_pb2.Order(algorithm_id=algorithm_id,
                                            ticker=next_ticker,
                                            volume=1.0,
@@ -139,10 +139,36 @@ def invest_approximately_uniformly_in_targets(algorithm_id, portfolio,
 
 
 def invest_approximately_uniformly(algorithm_id, portfolio, daily_data,
-                                   investment_limit=None):
+                                   investment_limit=None, UP=1.01, DOWN=0.99):
     """
     Invest approximately uniformly in *all* assets.
     """
     targets = set([ticker for ticker in daily_data.prices])
     return invest_approximately_uniformly_in_targets(
         algorithm_id, portfolio, daily_data, targets, investment_limit)
+
+
+def total_order_limit(orders):
+    """
+    Returns the total limit of a iterable of orders.
+    """
+    return sum([order.limit * order.volume for order in orders])
+
+
+def remaining_limit(portfolio, orders):
+    """
+    Returns the amount of investment limit remaining after orders are accounted
+    for.
+    """
+    return portfolio.usd - total_order_limit(orders)
+
+
+def orders_sorted_descending(orders):
+    """
+    Sort orders such that all sell orders come before all buy orders, and sort
+    the buys by volume * limit, descending.
+    """
+    sells = [order for order in orders if order.volume <= 0.0]
+    buys = [order for order in orders if order.volume > 0.0]
+    buys = sorted(buys, key=lambda order: -order.limit * order.volume)
+    return sells + buys
