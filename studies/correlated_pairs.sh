@@ -6,8 +6,8 @@ OUTPUT_DIR=/tmp/fizzybuzzy
 mkdir -p "${OUTPUT_DIR}"
 
 # Supervisor
-go run cmd/supervisor/main.go \
-  > "${OUTPUT_DIR}/supervisorstdout" &
+go run cmd/supervisor/main.go &
+#  > "${OUTPUT_DIR}/supervisorstdout" &
 
 # Algorithms
 python3 algorithm/correlated_pairs/correlated_pairs.py \

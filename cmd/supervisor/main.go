@@ -12,8 +12,13 @@ import (
 )
 
 var (
-	port = flag.Int("port", 17500, "Port for rpc server.")
-	mode = flag.String("mode", "sync", "Supervision mode (sync, async, paper, live).")
+	port         = flag.Int("port", 17500, "Port for rpc server.")
+	mode         = flag.String("mode", "sync", "Supervision mode (sync, async, paper, live).")
+	timescaleURL = flag.String(
+		"timescale_url",
+		"postgres://localhost:5432/gravy_timescale_output?sslmode=disable",
+		"Timescale DB url",
+	)
 )
 
 func parseTradingMode(mode string) supervisor.TradingMode {
@@ -43,7 +48,7 @@ func main() {
 
 	// Make server (uninitialized)
 	tradingMode := parseTradingMode(*mode)
-	supervisorServer, err := supervisor.New(tradingMode)
+	supervisorServer, err := supervisor.New(tradingMode, *timescaleURL)
 	if err != nil {
 		log.Fatalf("Error constructing server: %s", err.Error())
 	}
@@ -54,8 +59,12 @@ func main() {
 	supervisor_pb.RegisterSupervisorServer(grpcServer, supervisorServer)
 
 	// Init and serve.
-	supervisorServer.Init()
+	timescaleID, err := supervisorServer.Init()
 	defer supervisorServer.Close()
+	if err != nil {
+		log.Fatalf("Error initializing supervisor: `%s`", err.Error())
+	}
 	log.Printf("Listening on `%s`", listeningOn)
+	log.Printf("Writing to timescale table `%s`", timescaleID)
 	grpcServer.Serve(lis)
 }

@@ -6,6 +6,8 @@ require (
 	github.com/Clever/go-utils v0.0.0-20180917210021-2dac0ec6f2ac
 	github.com/bradfitz/slice v0.0.0-20180809154707-2b758aa73013
 	github.com/golang/protobuf v1.4.3
+	github.com/jackc/pgx v3.6.2+incompatible
+	github.com/jackc/pgx/v4 v4.11.0
 	github.com/lib/pq v1.8.0
 	github.com/stretchr/testify v1.6.1
 	github.com/tensorflow/tensorflow v2.3.1+incompatible

@@ -55,7 +55,17 @@ In the main time series, we track some aggregated metrics of all positions closi
 * `closing_pos_return_max`
 * `closing_pos_return_mean`
 
+Strategies ought to be able to add their own fields, e.g. measuring accuracy of the model.
+
 ## What is a position?
 
 There is some question remaining about how to measure the performance of a position.
 
+
+## Services
+
+1. Grafana runs on 3030 (`brew services grafana start`)
+2. The db has a simple debug on 8080
+3. Most things run on 175xx
+4. Database `gravy` is a pure postgres with the `dailyprices` table etc
+5. Database `gravy_timescale_output` is a timescaleDB output with tables for each run

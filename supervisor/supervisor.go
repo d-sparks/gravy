@@ -21,6 +21,7 @@ import (
 	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
 	"github.com/golang/protobuf/ptypes"
 	timestamp_pb "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/jackc/pgx/v4"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -64,37 +65,38 @@ type S struct {
 	// Current trading mode.
 	tradingMode TradingMode
 
-	// Logging.
+	// Logging (csv and timescale).
 	algorithmsOut      map[string]*bufio.Writer
 	algorithmsOutOrder []string
 	out                *bufio.Writer
+	timescaleURL       string
+	timescaleContext   context.Context
+	timescaleID        string
+	timescaleDB        *pgx.Conn
 
 	// Locks and unlocks when simulations or trading modes are in progress.
 	mu sync.Mutex
 }
 
 // New creates a new supervisor in the given trading mode.
-func New(tradingMode TradingMode) (*S, error) {
-	var s S
-
-	s.tradingMode = tradingMode
-
-	return &s, nil
+func New(tradingMode TradingMode, timescaleURL string) (*S, error) {
+	return &S{tradingMode: tradingMode, timescaleURL: timescaleURL}, nil
 }
 
-// Init initializes the supervisor, in particular the registrar.
-func (s *S) Init() error {
+// Init initializes the supervisor, in particular the registrar and timescale DB. Returns the timescaleDB table.
+func (s *S) Init() (string, error) {
 	var err error
 	s.registrar, err = registrar.New()
 	if err != nil {
-		return fmt.Errorf("Error constructing registrar: %s", err.Error())
+		return "", fmt.Errorf("Error constructing registrar: %s", err.Error())
 	}
-	return nil
+	return s.initTimescaleDB()
 }
 
 // Close closes the registrar.
 func (s *S) Close() {
 	s.registrar.Close()
+	s.timescaleDB.Close(s.timescaleContext)
 }
 
 // PlaceOrder places an order in the set trading mode.
@@ -376,7 +378,7 @@ func (s *S) logTick(timestamp *timestamp_pb.Timestamp, prices *dailyprices_pb.Da
 	// Log
 	s.out.WriteString(strings.Join(cols, ",") + "\n")
 
-	return nil
+	return s.logTickToTimescale(nativeTime, prices)
 }
 
 // initializePricesServer tells the prices server to start over with tracking correlations etc.
@@ -464,6 +466,11 @@ func (s *S) SynchronousDailySim(
 		return nil, fmt.Errorf("Error creating log file: %s", err.Error())
 	}
 	defer closer()
+
+	// Add columns for timescale output.
+	if err = s.initTimescaleDBAlgorithmColumns(); err != nil {
+		return nil, fmt.Errorf("Error creating timescale columns: %s", err.Error)
+	}
 
 	// Initialize the prices server.
 	if err = s.initializePricesServer(ctx, input); err != nil {
