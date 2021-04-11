@@ -172,3 +172,12 @@ def orders_sorted_descending(orders):
     buys = [order for order in orders if order.volume > 0.0]
     buys = sorted(buys, key=lambda order: -order.limit * order.volume)
     return sells + buys
+
+
+def divide_or_zero(num, denom):
+    """
+    Divides the two quantities or returns 0 if denom is extremely small.
+    """
+    if denom < 1e-6:
+        return 0.0
+    return num / denom

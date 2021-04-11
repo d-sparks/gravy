@@ -240,8 +240,8 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
             target = \
                 first_units_to_sell * daily_data.prices[first_ticker].close
             second_ticker = pair.second_ticker
-            second_units_to_buy = math.floor(
-                target / daily_data.prices[second_ticker].close)
+            second_units_to_buy = math.floor(portfolio_helpers.divide_or_zero(
+                target, daily_data.prices[second_ticker].close))
             while second_units_to_buy > 0:
                 next_chunk = max(math.floor(0.9 * second_units_to_buy), 1.0)
                 orders += [supervisor_pb2.Order(algorithm_id=self.algorithm_id,
