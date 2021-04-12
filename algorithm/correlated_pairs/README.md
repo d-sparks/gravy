@@ -57,6 +57,10 @@ In the main time series, we track some aggregated metrics of all positions closi
 
 Strategies ought to be able to add their own fields, e.g. measuring accuracy of the model.
 
+We can add a string field to show us which stocks represent an exceptionally large fraction of the portfolio each day.
+
+* `significant_stocks` (string e.g. 'GOOG: 37% FB: 23% MSFT 20% FORD 5%')
+
 ## What is a position?
 
 There is some question remaining about how to measure the performance of a position.

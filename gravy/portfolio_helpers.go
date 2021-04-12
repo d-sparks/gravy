@@ -2,6 +2,7 @@ package gravy
 
 import (
 	"math"
+	"sort"
 
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
@@ -14,6 +15,46 @@ func PortfolioValue(portfolio *supervisor_pb.Portfolio, prices *dailyprices_pb.D
 		value += volume * prices.GetPrices()[ticker].GetClose()
 	}
 	return value
+}
+
+// SignificantAllocations returns a co-indexed list of stocks and the weight of that stock in the portfolio, sorted by
+// weight descending. Only returns the top 20 allocations amongst those with weight at least 1%.
+func SignificantAllocations(
+	portfolio *supervisor_pb.Portfolio,
+	prices *dailyprices_pb.DailyData,
+	portfolioValue float64,
+) ([]string, []float64) {
+	onePercentStocks := []struct {
+		ticker string
+		weight float64
+	}{}
+
+	// Find all heavy stocks.
+	for ticker, volume := range portfolio.GetStocks() {
+		weight := volume * prices.GetPrices()[ticker].GetClose() / portfolioValue
+		if weight < 0.01 {
+			continue
+		}
+		onePercentStocks = append(onePercentStocks, struct {
+			ticker string
+			weight float64
+		}{ticker: ticker, weight: weight})
+	}
+
+	// Sort by weight descending.
+	sort.Slice(onePercentStocks, func(i int, j int) bool {
+		return onePercentStocks[i].weight > onePercentStocks[j].weight
+	})
+
+	// Build output.
+	tickers := []string{}
+	weights := []float64{}
+	for i := 0; i < len(onePercentStocks) && i < 20; i++ {
+		tickers = append(tickers, onePercentStocks[i].ticker)
+		weights = append(weights, onePercentStocks[i].weight)
+	}
+
+	return tickers, weights
 }
 
 // TargetUniformInvestment returns the target value per stock to achieve uniform investment.

@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 1,
-  "iteration": 1618176890388,
+  "iteration": 1618177643001,
   "links": [],
   "panels": [
     {
@@ -71,13 +71,13 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": false,
-          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  correlatedpairs_portfolio_value,\n  buyandhold_portfolio_value,\n  buyspy_portfolio_value\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_portfolio_value,\n  ${strategy_1}_portfolio_value,\n  ${strategy_2}_portfolio_value\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                  "correlatedpairs_portfolio_value"
+                  "${main_strategy}_portfolio_value"
                 ],
                 "type": "column"
               }
@@ -85,7 +85,7 @@
             [
               {
                 "params": [
-                  "buyandhold_portfolio_value"
+                  "${strategy_1}_portfolio_value"
                 ],
                 "type": "column"
               }
@@ -93,7 +93,7 @@
             [
               {
                 "params": [
-                  "buyspy_portfolio_value"
+                  "${strategy_2}_portfolio_value"
                 ],
                 "type": "column"
               }
@@ -204,13 +204,13 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": false,
-          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  correlatedpairs_alpha_252,\n  buyandhold_alpha_252,\n  buyspy_alpha_252\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_alpha_252,\n  ${strategy_1}_alpha_252,\n  ${strategy_2}_alpha_252\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                  "correlatedpairs_alpha_252"
+                  "${main_strategy}_alpha_252"
                 ],
                 "type": "column"
               }
@@ -218,7 +218,7 @@
             [
               {
                 "params": [
-                  "buyandhold_alpha_252"
+                  "${strategy_1}_alpha_252"
                 ],
                 "type": "column"
               }
@@ -226,7 +226,7 @@
             [
               {
                 "params": [
-                  "buyspy_alpha_252"
+                  "${strategy_2}_alpha_252"
                 ],
                 "type": "column"
               }
@@ -337,13 +337,13 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": false,
-          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  correlatedpairs_beta_252,\n  buyandhold_beta_252,\n  buyspy_beta_252\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_beta_252,\n  ${strategy_1}_beta_252,\n  ${strategy_2}_beta_252\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                  "correlatedpairs_beta_252"
+                  "${main_strategy}_beta_252"
                 ],
                 "type": "column"
               }
@@ -351,7 +351,7 @@
             [
               {
                 "params": [
-                  "buyandhold_beta_252"
+                  "${strategy_1}_beta_252"
                 ],
                 "type": "column"
               }
@@ -359,7 +359,7 @@
             [
               {
                 "params": [
-                  "buyspy_beta_252"
+                  "${strategy_2}_beta_252"
                 ],
                 "type": "column"
               }
@@ -417,6 +417,193 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 6,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "7.5.1",
+      "targets": [
+        {
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": false,
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_significant_holdings\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "${main_strategy}_significant_holdings"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "table": "timescaleout$run_timestamp",
+          "timeColumn": "\"time\"",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Significant Holdings",
+      "type": "table"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "hiddenSeries": false,
+      "id": 8,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": false,
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  (${main_strategy}_portfolio_value - ${main_strategy}_usd) / ${main_strategy}_portfolio_value\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "(${main_strategy}_portfolio_value - ${main_strategy}_usd) / ${main_strategy}_portfolio_value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "table": "timescaleout$run_timestamp",
+          "timeColumn": "\"time\"",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Capital Utilization",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": false,
@@ -428,8 +615,8 @@
       {
         "current": {
           "selected": false,
-          "text": "1618175345",
-          "value": "1618175345"
+          "text": "1618193295",
+          "value": "1618193295"
         },
         "description": null,
         "error": null,
@@ -439,19 +626,85 @@
         "options": [
           {
             "selected": true,
-            "text": "1618175345",
-            "value": "1618175345"
+            "text": "1618193295",
+            "value": "1618193295"
           }
         ],
-        "query": "1618175345",
+        "query": "1618193295",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "correlatedpairs",
+          "value": "correlatedpairs"
+        },
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "label": "Main strategy",
+        "name": "main_strategy",
+        "options": [
+          {
+            "selected": true,
+            "text": "correlatedpairs",
+            "value": "correlatedpairs"
+          }
+        ],
+        "query": "correlatedpairs",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "buyandhold",
+          "value": "buyandhold"
+        },
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "label": "Baseline algorithm 1",
+        "name": "strategy_1",
+        "options": [
+          {
+            "selected": true,
+            "text": "buyandhold",
+            "value": "buyandhold"
+          }
+        ],
+        "query": "buyandhold",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "buyspy",
+          "value": "buyspy"
+        },
+        "description": null,
+        "error": null,
+        "hide": 0,
+        "label": "Baseline algorithm 2",
+        "name": "strategy_2",
+        "options": [
+          {
+            "selected": true,
+            "text": "buyspy",
+            "value": "buyspy"
+          }
+        ],
+        "query": "buyspy",
         "skipUrlSync": false,
         "type": "textbox"
       }
     ]
   },
   "time": {
-    "from": "2005-02-28T08:00:00.000Z",
-    "to": "2011-02-17T08:00:00.000Z"
+    "from": "2005-03-12T15:48:59.581Z",
+    "to": "2011-02-06T09:53:35.469Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -468,7 +721,7 @@
     ]
   },
   "timezone": "",
-  "title": "GravyTimescaleOutput Copy",
+  "title": "GravyTimescaleOutput",
   "uid": "L22-7MuGz",
-  "version": 2
+  "version": 5
 }

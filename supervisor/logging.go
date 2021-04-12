@@ -36,6 +36,7 @@ var perAlgorithmCols = []string{
 	"closing_pos_return_min",
 	"closing_pos_return_max",
 	"closing_pos_return_mean",
+	"significant_holdings",
 }
 
 // initTimescaleDB creates a new unique identifier and creates and initializes a TimescaleDB for this session.
@@ -64,14 +65,19 @@ func (s *S) initTimescaleDBAlgorithmColumns() error {
 	// Add columns for each algorithm.
 	for algorithmID := range s.registrar.Algorithms {
 		for _, col := range perAlgorithmCols {
+			colType := "FLOAT (8)"
+			if col == "significant_holdings" {
+				colType = "TEXT"
+			}
 			algoCol := fmt.Sprintf("%s_%s", algorithmID, col)
 			// Add column.
 			if _, err := s.timescaleDB.Exec(
 				s.timescaleContext,
 				fmt.Sprintf(
-					"ALTER TABLE %s ADD COLUMN %s FLOAT (8) NOT NULL;",
+					"ALTER TABLE %s ADD COLUMN %s %s NOT NULL;",
 					s.timescaleID,
 					algoCol,
+					colType,
 				),
 			); err != nil {
 				return err
@@ -91,6 +97,7 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 
 	ix := 2
 	for algorithmID := range s.registrar.Algorithms {
+		portfolioValue := 0.0
 		for _, col := range perAlgorithmCols {
 			algoCol := fmt.Sprintf("%s_%s", algorithmID, col)
 			cols = append(cols, algoCol)
@@ -98,14 +105,25 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 			case "usd":
 				vals = append(vals, fmt.Sprintf("%f", s.portfolios[algorithmID].GetUsd()))
 			case "portfolio_value":
-				vals = append(
-					vals,
-					fmt.Sprintf("%f", gravy.PortfolioValue(s.portfolios[algorithmID], dailyData)),
-				)
+				portfolioValue = gravy.PortfolioValue(s.portfolios[algorithmID], dailyData)
+				vals = append(vals, fmt.Sprintf("%f", portfolioValue))
 			case "alpha_252":
 				vals = append(vals, fmt.Sprintf("%f", s.alpha[algorithmID].Alpha()))
 			case "beta_252":
 				vals = append(vals, fmt.Sprintf("%f", s.alpha[algorithmID].Beta()))
+			case "significant_holdings":
+				// This is a hack depending on the ordering of the algo cols above, we know we will
+				// calculate portfolio value before this column.
+				tickers, weights := gravy.SignificantAllocations(
+					s.portfolios[algorithmID],
+					dailyData,
+					portfolioValue,
+				)
+				colonSeparated := make([]string, len(tickers))
+				for i := 0; i < len(tickers); i++ {
+					colonSeparated[i] = fmt.Sprintf("%s: %.2f", tickers[i], weights[i])
+				}
+				vals = append(vals, strings.Join(colonSeparated, " "))
 			default:
 				vals = append(vals, "0.0")
 			}
