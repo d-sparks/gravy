@@ -13,11 +13,11 @@ var (
 
 	portfolio = &supervisor_pb.Portfolio{Stocks: map[string]float64{"MSFT": 3.0, "GOOG": 2.0}, Usd: 1.0}
 
-	prices = &dailyprices_pb.DailyPrices{
-		StockPrices: map[string]*dailyprices_pb.DailyPrices_StockPrices{
-			"MSFT": &dailyprices_pb.DailyPrices_StockPrices{Close: 5.0},
-			"GOOG": &dailyprices_pb.DailyPrices_StockPrices{Close: 10.0},
-			"FB":   &dailyprices_pb.DailyPrices_StockPrices{Close: 7.0},
+	prices = &dailyprices_pb.DailyData{
+		Prices: map[string]*dailyprices_pb.Prices{
+			"MSFT": &dailyprices_pb.Prices{Close: 5.0},
+			"GOOG": &dailyprices_pb.Prices{Close: 10.0},
+			"FB":   &dailyprices_pb.Prices{Close: 7.0},
 		},
 	}
 )
@@ -90,11 +90,11 @@ var testAlgorithmID = &supervisor_pb.AlgorithmId{AlgorithmId: "TEST"}
 
 // TestInvestApproximatelyUniformlyHappyPath is the happy path test case with a single stock.
 func TestInvestApproximatelyUniformlyHappyPath(t *testing.T) {
-	var dailyPrices dailyprices_pb.DailyPrices
+	var dailyPrices dailyprices_pb.DailyData
 	var portfolio supervisor_pb.Portfolio
 
-	dailyPrices.StockPrices = map[string]*dailyprices_pb.DailyPrices_StockPrices{
-		"MSFT": &dailyprices_pb.DailyPrices_StockPrices{Close: 10.0},
+	dailyPrices.Prices = map[string]*dailyprices_pb.Prices{
+		"MSFT": &dailyprices_pb.Prices{Close: 10.0},
 	}
 	portfolio.Usd = 1000.0
 
@@ -109,12 +109,12 @@ func TestInvestApproximatelyUniformlyHappyPath(t *testing.T) {
 
 // TestInvestApproximatelyUniformlyTwoStocks is the happy path test case with a two stocks and no tradeoff.
 func TestInvestApproximatelyUniformlyTwoStocks(t *testing.T) {
-	var dailyPrices dailyprices_pb.DailyPrices
+	var dailyPrices dailyprices_pb.DailyData
 	var portfolio supervisor_pb.Portfolio
 
-	dailyPrices.StockPrices = map[string]*dailyprices_pb.DailyPrices_StockPrices{
-		"MSFT": &dailyprices_pb.DailyPrices_StockPrices{Close: 10.0},
-		"GOOG": &dailyprices_pb.DailyPrices_StockPrices{Close: 20.0},
+	dailyPrices.Prices = map[string]*dailyprices_pb.Prices{
+		"MSFT": &dailyprices_pb.Prices{Close: 10.0},
+		"GOOG": &dailyprices_pb.Prices{Close: 20.0},
 	}
 	portfolio.Usd = 1000.0
 
@@ -134,17 +134,17 @@ func TestInvestApproximatelyUniformlyTwoStocks(t *testing.T) {
 
 // TestInvestApproximatelyUniformlyManyStocks tests the case of many stocks.
 func TestInvestApproximatelyUniformlyManyStocks(t *testing.T) {
-	var dailyPrices dailyprices_pb.DailyPrices
+	var dailyPrices dailyprices_pb.DailyData
 	var portfolio supervisor_pb.Portfolio
 
-	dailyPrices.StockPrices = map[string]*dailyprices_pb.DailyPrices_StockPrices{
-		"MSFT": &dailyprices_pb.DailyPrices_StockPrices{Close: 10.0},
-		"GOOG": &dailyprices_pb.DailyPrices_StockPrices{Close: 20.0},
-		"FB":   &dailyprices_pb.DailyPrices_StockPrices{Close: 7.0},
-		"APPL": &dailyprices_pb.DailyPrices_StockPrices{Close: 150.0},
-		"NVDA": &dailyprices_pb.DailyPrices_StockPrices{Close: 9.0},
-		"GM":   &dailyprices_pb.DailyPrices_StockPrices{Close: 0.50},
-		"FORD": &dailyprices_pb.DailyPrices_StockPrices{Close: 1.0},
+	dailyPrices.Prices = map[string]*dailyprices_pb.Prices{
+		"MSFT": &dailyprices_pb.Prices{Close: 10.0},
+		"GOOG": &dailyprices_pb.Prices{Close: 20.0},
+		"FB":   &dailyprices_pb.Prices{Close: 7.0},
+		"APPL": &dailyprices_pb.Prices{Close: 150.0},
+		"NVDA": &dailyprices_pb.Prices{Close: 9.0},
+		"GM":   &dailyprices_pb.Prices{Close: 0.50},
+		"FORD": &dailyprices_pb.Prices{Close: 1.0},
 	}
 	portfolio.Usd = 1000.0
 

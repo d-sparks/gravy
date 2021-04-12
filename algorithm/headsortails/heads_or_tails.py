@@ -1,4 +1,5 @@
 import argparse
+import gravy.portfolio_helpers as portfolio_helpers
 import grpc
 import logging
 import math
@@ -14,6 +15,7 @@ from concurrent import futures
 from data.dailyprices.proto import daily_prices_pb2
 from datetime import datetime, timezone
 from google.protobuf import timestamp_pb2
+from gravy.math_helpers import *
 from registrar.registrar import Registrar
 from supervisor.proto import supervisor_pb2
 
@@ -29,80 +31,6 @@ thresholds = dict({
     0.7: 0.73291015625,
     0.8: 0.79052734375,
     0.9: 0.83056640625})
-
-
-def z_score_or_zero(x, mu, sigma):
-    """
-    Returns the z score unless sigma is prohibitively small, in which case
-    returns 0.0. TODO: Move to a helper package.
-    """
-    if sigma == None or sigma < 1E-6:
-        return 0.0
-    return (x - mu) / sigma
-
-
-def sqrt_or_zero(x):
-    """
-    Returns hte square root of x if x >= 0.0. TODO: Move to a helper package.
-    """
-    return math.sqrt(x) if x >= 0.0 else 0.0
-
-
-def sell_stocks_with_stop(algorithm_id, tickers, portfolio, stop):
-    """
-    Creates orders to sell all tickers at the stop price determined by the
-    given `stop` lambda. TODO: Move to a helper package.
-    """
-    orders = []
-    for ticker in tickers:
-        if ticker not in portfolio.stocks:
-            continue
-        units = portfolio.stocks[ticker]
-        orders += [supervisor_pb2.Order(
-            algorithm_id=algorithm_id, ticker=ticker,
-            volume=-units, stop=stop(ticker))]
-    return orders
-
-
-def sell_stocks_market_order(algorithm_id, tickers, portfolio):
-    """
-    Sells all held tickers with market orders. TODO: Move to a helper package.
-    """
-    return sell_stocks_with_stop(
-        algorithm_id, tickers, portfolio, lambda ticker: 0.0)
-
-
-def portfolio_value(portfolio, prices):
-    """
-    Calculates the portfolio value at closing prices. TODO: Move to a helper
-    package.
-    """
-    value = portfolio.usd
-    for ticker, units in portfolio.stocks.items():
-        value += units * prices[ticker].close
-    return value
-
-
-def orders_for_target_units(algorithm_id, ticker, target_units, limit):
-    """
-    Makes orders for the target number of units batched as 0.9*target,
-    0.9*(target - 0.9*target), and so on, and includes any number of single
-    unit orders necessary to reach target.
-    """
-    orders = []
-    placed = 0
-    next_batch = max(1, int(target_units * 0.9))
-    while True:
-        if placed + next_batch > target_units:
-            if next_batch == 1:
-                break
-            next_batch = max(1, int((target_units-placed) * 0.9))
-            continue
-        orders += [supervisor_pb2.Order(
-            algorithm_id=algorithm_id, ticker=ticker,
-            volume=next_batch, limit=limit)]
-        placed += next_batch
-    return orders
 
 
 class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
@@ -137,17 +65,18 @@ class HeadsOrTails(algorithm_io_pb2_grpc.AlgorithmServicer):
 
         to_sell = [ticker for ticker, units in portfolio.stocks.items()
                    if ticker != desired_ticker and units > 0.0]
-        orders = sell_stocks_market_order(
+        orders = portfolio_helpers.sell_stocks_market_order(
             self.algorithm_id, to_sell, portfolio)
 
         price = prices[desired_ticker].close
         held = 0.0
         if desired_ticker in portfolio.stocks:
             held = portfolio.stocks[desired_ticker]
-        target = portfolio_value(portfolio, prices) - held * price
+        portfolio_value = portfolio_helpers.portfolio_value(portfolio, prices)
+        target = portfolio_value - held * price
         limit = 1.01*price
         target_units = int(target / limit)
-        orders += orders_for_target_units(
+        orders += portfolio_helpers.orders_for_target_units(
             self.algorithm_id, desired_ticker, target_units, price*1.01)
 
         return orders
