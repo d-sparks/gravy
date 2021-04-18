@@ -183,3 +183,65 @@ func TestInvestApproximatelyUniformlyManyStocks(t *testing.T) {
 	assert.Equal(t, expectedLimit, limit)
 	assert.Less(t, 996.0, totalLimit)
 }
+
+// TestInvestApproximatelyUniformlyWithLimitsManyStocks tests the case of many stocks.
+func TestInvestApproximatelyUniformlyWithLimitsManyStocks(t *testing.T) {
+	var dailyPrices dailyprices_pb.DailyData
+	var portfolio supervisor_pb.Portfolio
+
+	dailyPrices.Prices = map[string]*dailyprices_pb.Prices{
+		"MSFT": &dailyprices_pb.Prices{Close: 10.0},
+		"GOOG": &dailyprices_pb.Prices{Close: 20.0},
+		"FB":   &dailyprices_pb.Prices{Close: 7.0},
+		"APPL": &dailyprices_pb.Prices{Close: 150.0},
+		"NVDA": &dailyprices_pb.Prices{Close: 9.0},
+		"GM":   &dailyprices_pb.Prices{Close: 0.50},
+		"FORD": &dailyprices_pb.Prices{Close: 1.0},
+	}
+	portfolio.Stocks = map[string]float64{
+		"MSFT": 1.0,
+		"GOOG": 1.0,
+		"FB":   1.0,
+		"APPL": 1.0,
+		"NVDA": 1.0,
+		"GM":   1.0,
+		"FORD": 1.0,
+	}
+	portfolio.Usd = 1000.0
+	for ticker, quantity := range portfolio.GetStocks() {
+		portfolio.Usd -= quantity * dailyPrices.GetPrices()[ticker].GetClose()
+	}
+
+	orders := InvestApproximatelyUniformly(testAlgorithmID, &portfolio, &dailyPrices)
+
+	expectedVolume := map[string]float64{
+		"FB":   19.0,
+		"FORD": 140.0,
+		"GM":   281.0,
+		"GOOG": 6.0,
+		"MSFT": 13.0,
+		"NVDA": 14.0,
+	}
+	expectedLimit := map[string]float64{
+		"FB":   7.07,
+		"FORD": 1.01,
+		"GM":   0.505,
+		"GOOG": 20.2,
+		"MSFT": 10.1,
+		"NVDA": 9.09,
+	}
+
+	assert.Equal(t, 6, len(orders))
+	volume := map[string]float64{}
+	limit := map[string]float64{}
+	totalLimit := 0.0
+	for _, order := range orders {
+		volume[order.GetTicker()] += order.GetVolume()
+		limit[order.GetTicker()] = order.GetLimit()
+		totalLimit += order.GetLimit() * order.GetVolume()
+	}
+
+	assert.Equal(t, expectedVolume, volume)
+	assert.Equal(t, expectedLimit, limit)
+	assert.Less(t, totalLimit, portfolio.GetUsd())
+}

@@ -23,17 +23,12 @@ type BuyAndHold struct {
 	registrar   *registrar.R
 
 	// For business logic
-	invested        bool
 	nextRebalance   int
 	rebalancePeriod int
 }
 
 // skipTrading is a precondition. Save time if you don't need to fetch prices/portfolio.
 func (b *BuyAndHold) skipTrading() bool {
-	if b.invested && b.nextRebalance > 0 {
-		b.nextRebalance--
-		return true
-	}
 	return false
 }
 
@@ -42,15 +37,22 @@ func (b *BuyAndHold) trade(
 	portfolio *supervisor_pb.Portfolio,
 	data *dailyprices_pb.DailyData,
 ) []*supervisor_pb.Order {
-	if !b.invested {
-		b.invested = true
-		b.nextRebalance = b.rebalancePeriod
-		return gravy.InvestApproximatelyUniformly(b.algorithmID, portfolio, data)
-	} else if b.nextRebalance == 0 {
-		b.invested = false
-		return gravy.SellEverythingMarketOrder(b.algorithmID, portfolio)
+	if b.nextRebalance == 0 {
+		b.nextRebalance = b.rebalancePeriod + 1
+		orders := gravy.SellEverythingMarketOrder(b.algorithmID, portfolio)
+		orders = append(orders, gravy.InvestApproximatelyUniformlyWithLimits(
+			b.algorithmID,
+			portfolio,
+			data,
+			/*investmentLimit=*/ gravy.PortfolioValue(portfolio, data),
+			/*upLimit=*/ 1.01,
+			/*downLimit=*/ 0.99,
+			/*ignoreExisting=*/ true,
+		)...)
+		return orders
 	}
-	return nil
+	b.nextRebalance -= 1
+	return gravy.InvestApproximatelyUniformly(b.algorithmID, portfolio, data)
 }
 
 // New creates a new, uninitialized BuyAndHold algorithm.
@@ -58,7 +60,6 @@ func New(algorithmID string, rebalancePeriod int) *BuyAndHold {
 	return &BuyAndHold{
 		id:              algorithmID,
 		algorithmID:     &supervisor_pb.AlgorithmId{AlgorithmId: algorithmID},
-		invested:        false,
 		rebalancePeriod: rebalancePeriod,
 	}
 }

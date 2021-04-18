@@ -69,6 +69,9 @@ func SellEverythingWithStop(
 	stop func(ticker string) float64,
 ) (orders []*supervisor_pb.Order) {
 	for ticker, volume := range portfolio.GetStocks() {
+		if volume == 0.0 {
+			continue
+		}
 		orders = append(orders, &supervisor_pb.Order{
 			AlgorithmId: algorithmID,
 			Ticker:      ticker,
@@ -103,19 +106,27 @@ func SellEverythingMarketOrder(
 
 }
 
-// InvestApproximatelyUniformly attempts to invest approximately uniformly.
-func InvestApproximatelyUniformlyInTargets(
+// InvestApproximatelyUniformlyInTargetsWithLimits attempts to invest approximately uniformly with given UP and DOWN
+// buffers. It is expected that upLimit * downLimit <= 1.0, so that the inlined comment below will hold in general.
+func InvestApproximatelyUniformlyInTargetsWithLimits(
 	algorithmID *supervisor_pb.AlgorithmId,
 	portfolio *supervisor_pb.Portfolio,
 	prices *dailyprices_pb.DailyData,
 	targets map[string]struct{},
+	investmentLimit float64,
+	upLimit float64,
+	downLimit float64,
+	ignoreExisting bool,
 ) (orders []*supervisor_pb.Order) {
 	if len(targets) == 0 {
 		return []*supervisor_pb.Order{}
 	}
+	if investmentLimit == 0.0 {
+		investmentLimit = portfolio.GetUsd()
+	}
 
 	totalLimitOfOrders := 0.0
-	target := 0.99 * PortfolioValue(portfolio, prices) / float64(len(targets))
+	target := downLimit * PortfolioValue(portfolio, prices) / float64(len(targets))
 	targetInvestments := map[string]float64{}
 
 	// Note: this will represent a total limit of
@@ -128,19 +139,26 @@ func InvestApproximatelyUniformlyInTargets(
 	//
 	// Thus, the investment is safe.
 	for ticker, stockPrices := range prices.GetPrices() {
-		if _, ok := targets[ticker]; !ok {
+		if _, ok := targets[ticker]; !ok || stockPrices.GetClose() < 1e-4 {
 			continue
 		}
-		volume := math.Floor(target / stockPrices.GetClose())
-		if volume == 0.0 {
+		limit := upLimit * stockPrices.GetClose()
+		existing := 0.0
+		if !ignoreExisting {
+			existing = portfolio.GetStocks()[ticker]
+		}
+		volume := math.Floor(math.Min(
+			target/stockPrices.GetClose()-existing,     // Ideal target
+			(investmentLimit-totalLimitOfOrders)/limit, // Imposed limit
+		))
+		if volume <= 0.0 {
 			continue
 		}
-		limit := 1.01 * stockPrices.GetClose()
 		orders = append(orders, &supervisor_pb.Order{
 			AlgorithmId: algorithmID, Ticker: ticker, Volume: volume, Limit: limit,
 		})
 		targetInvestments[ticker] = volume * limit
-		totalLimitOfOrders += volume * limit
+		totalLimitOfOrders += volume * limit // Because of min above, this is <= investmentLimit
 	}
 
 	// Continue investing until we can't get closer to a uniform investment.
@@ -171,7 +189,7 @@ func InvestApproximatelyUniformlyInTargets(
 			break
 		}
 		// Place an order for a nextTicker
-		limit := 1.01 * nextPrice
+		limit := upLimit * nextPrice
 		orders = append(orders, &supervisor_pb.Order{
 			AlgorithmId: algorithmID, Ticker: nextTicker, Volume: 1.0, Limit: limit,
 		})
@@ -180,6 +198,25 @@ func InvestApproximatelyUniformlyInTargets(
 	}
 
 	return
+}
+
+// InvestApproximatelyUniformly attempts to invest approximately uniformly.
+func InvestApproximatelyUniformlyInTargets(
+	algorithmID *supervisor_pb.AlgorithmId,
+	portfolio *supervisor_pb.Portfolio,
+	prices *dailyprices_pb.DailyData,
+	targets map[string]struct{},
+) (orders []*supervisor_pb.Order) {
+	return InvestApproximatelyUniformlyInTargetsWithLimits(
+		algorithmID,
+		portfolio,
+		prices,
+		targets,
+		/*investmentLimit=*/ 0.0,
+		/*upLimit=*/ 1.01,
+		/*downLimit=*/ 0.99,
+		/*ignoreExisting=*/ false,
+	)
 }
 
 // InvestApproximatelyUniformly attempts to invest approximately uniformly.
@@ -193,4 +230,30 @@ func InvestApproximatelyUniformly(
 		targets[ticker] = struct{}{}
 	}
 	return InvestApproximatelyUniformlyInTargets(algorithmID, portfolio, prices, targets)
+}
+
+// InvestApproximatelyUniformlyWithLimits invests in all targets.
+func InvestApproximatelyUniformlyWithLimits(
+	algorithmID *supervisor_pb.AlgorithmId,
+	portfolio *supervisor_pb.Portfolio,
+	prices *dailyprices_pb.DailyData,
+	investmentLimit float64,
+	upLimit float64,
+	downLimit float64,
+	ignoreExisting bool,
+) (orders []*supervisor_pb.Order) {
+	targets := map[string]struct{}{}
+	for ticker := range prices.GetPrices() {
+		targets[ticker] = struct{}{}
+	}
+	return InvestApproximatelyUniformlyInTargetsWithLimits(
+		algorithmID,
+		portfolio,
+		prices,
+		targets,
+		investmentLimit,
+		upLimit,
+		downLimit,
+		ignoreExisting,
+	)
 }
