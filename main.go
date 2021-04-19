@@ -15,7 +15,7 @@ import (
 
 var (
 	start      = flag.String("start", "2005-02-25", "Start date.")
-	end        = flag.String("end", "2006-02-25", "Start date.")
+	end        = flag.String("end", "2006-02-25", "End date.")
 	outputDir  = flag.String("output_dir", "/tmp/foo", "Output directory.")
 	algorithms = flag.String(
 		"algorithms",
