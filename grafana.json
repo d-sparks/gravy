@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 1,
-  "iteration": 1618177643001,
+  "iteration": 1618794708306,
   "links": [],
   "panels": [
     {
@@ -604,6 +604,425 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "hiddenSeries": false,
+      "id": 11,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": false,
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_usd / ${main_strategy}_portfolio_value AS \"USD fraction\",\n  ${main_strategy}_pos_value / ${main_strategy}_portfolio_value AS \"Position fraction\",\n  ${main_strategy}_oop_value / ${main_strategy}_portfolio_value AS \"Out of position fraction\"\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "${main_strategy}_usd / ${main_strategy}_portfolio_value"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "USD fraction"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "${main_strategy}_pos_value / ${main_strategy}_portfolio_value"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Position fraction"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "${main_strategy}_oop_value / ${main_strategy}_portfolio_value"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Out of position fraction"
+                ],
+                "type": "alias"
+              }
+            ]
+          ],
+          "table": "timescaleout$run_timestamp",
+          "timeColumn": "\"time\"",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "In position vs out of position",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "hiddenSeries": false,
+      "id": 13,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": false,
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_num_opening_positions AS \"Num opening positions\",\n  ${main_strategy}_num_closing_positions AS \"Num closing positions\"\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "${main_strategy}_num_opening_positions"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Num opening positions"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "${main_strategy}_num_closing_positions"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Num closing positions"
+                ],
+                "type": "alias"
+              }
+            ]
+          ],
+          "table": "timescaleout$run_timestamp",
+          "timeColumn": "\"time\"",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Opening / closing positions",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "hiddenSeries": false,
+      "id": 14,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": false,
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_buys_value / ${main_strategy}_portfolio_value AS \"Buys\",\n  ${main_strategy}_sells_value / ${main_strategy}_portfolio_value AS \"Sells\"\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "${main_strategy}_buys_value / ${main_strategy}_portfolio_value"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Buys"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "${main_strategy}_sells_value / ${main_strategy}_portfolio_value"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Sells"
+                ],
+                "type": "alias"
+              }
+            ]
+          ],
+          "table": "timescaleout$run_timestamp",
+          "timeColumn": "\"time\"",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Buys and sells",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
   "refresh": false,
@@ -615,8 +1034,8 @@
       {
         "current": {
           "selected": false,
-          "text": "1618193295",
-          "value": "1618193295"
+          "text": "1618794155",
+          "value": "1618794155"
         },
         "description": null,
         "error": null,
@@ -625,18 +1044,18 @@
         "name": "run_timestamp",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "1618193295",
             "value": "1618193295"
           }
         ],
-        "query": "1618193295",
+        "query": "1618794155",
         "skipUrlSync": false,
         "type": "textbox"
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "correlatedpairs",
           "value": "correlatedpairs"
         },
@@ -658,7 +1077,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "buyandhold",
           "value": "buyandhold"
         },
@@ -680,7 +1099,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "buyspy",
           "value": "buyspy"
         },
@@ -703,11 +1122,12 @@
     ]
   },
   "time": {
-    "from": "2005-03-12T15:48:59.581Z",
-    "to": "2011-02-06T09:53:35.469Z"
+    "from": "2006-03-07T14:34:50.981Z",
+    "to": "2012-08-14T12:53:39.913Z"
   },
   "timepicker": {
     "refresh_intervals": [
+      "1s",
       "5s",
       "10s",
       "30s",
@@ -723,5 +1143,5 @@
   "timezone": "",
   "title": "GravyTimescaleOutput",
   "uid": "L22-7MuGz",
-  "version": 5
+  "version": 10
 }

@@ -101,6 +101,7 @@ class Pair:
         self.second_ticker = second
         self.second_fundamentals = Individual(second, daily_data)
         self.correlation = correlation
+        self.position_spec = None  # Set when the position officially opens
 
     def to_vector(self, header=False):
         """
@@ -235,7 +236,8 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
             orders += [supervisor_pb2.Order(algorithm_id=self.algorithm_id,
                                             ticker=first_ticker,
                                             volume=first_units_to_sell,
-                                            stop=0.0)]
+                                            stop=0.0,
+                                            position=pair.position_spec)]
             # Invest this in the second asset.
             target = \
                 first_units_to_sell * daily_data.prices[first_ticker].close
@@ -252,6 +254,8 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
             # Remove these assets from the `assets_in_pairs` set.
             self.assets_in_pairs.remove(first_ticker)
             self.assets_in_pairs.remove(second_ticker)
+            # Close the position
+            self.registrar.supervisor_stub.ClosePosition(pair.position_spec)
         return orders
 
     def build_pair_orders(self, pairs, portfolio, daily_data):
@@ -261,6 +265,11 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
         """
         orders = []
         for pair in pairs:
+            # Open the position
+            pair.position_spec = self.registrar.supervisor_stub.OpenPosition(
+                supervisor_pb2.OpenPositionInput(
+                    algorithm_id=self.algorithm_id,
+                    ticker=[pair.first_ticker, pair.second_ticker]))
             # Sell all of the second asset.
             second_ticker = pair.second_ticker
             second_units_to_sell = portfolio.stocks[second_ticker]
@@ -277,7 +286,8 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
                 orders += [supervisor_pb2.Order(algorithm_id=self.algorithm_id,
                                                 ticker=pair.first_ticker,
                                                 volume=next_chunk,
-                                                limit=1.02*first_price)]
+                                                limit=1.02*first_price,
+                                                position=pair.position_spec)]
                 first_units_to_buy -= next_chunk
             # Record in the `assets_in_pairs` set.
             self.assets_in_pairs.add(pair.first_ticker)

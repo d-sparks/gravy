@@ -11,6 +11,10 @@ service Supervisor {
 
   rpc GetPortfolio(AlgorithmId) returns (Portfolio) {}
 
+  rpc OpenPosition(OpenPositionInput) returns (PositionSpec) {}
+
+  rpc ClosePosition(PositionSpec) returns (ClosePositionResponse) {}
+
   rpc DoneTrading(AlgorithmId) returns  (DoneTradingResponse) {}
 
   rpc SynchronousDailySim(SynchronousDailySimInput) returns (SynchronousDailySimOutput) {}
@@ -18,16 +22,34 @@ service Supervisor {
   rpc Abort(AbortInput) returns (AbortOutput) {}
 }
 
+// IDs and specs.
 message AlgorithmId {
   string algorithm_id = 1;
 }
 
+message AlgorithmSpec { 
+  AlgorithmId id = 1;
+  string url = 2;
+}
+
+message OpenPositionInput {
+  AlgorithmId algorithm_id = 1;
+  repeated string ticker = 2;
+}
+
+message PositionSpec {
+  uint64 id = 1;
+  AlgorithmId algorithm_id = 2;
+}
+
+// Trading interfaces.
 message Order {
   AlgorithmId algorithm_id = 1;
   string ticker = 2;
   double volume = 3;
   double limit = 4;
   double stop = 5;
+  PositionSpec position = 6;
 }
 
 message OrderConfirmation {
@@ -38,11 +60,13 @@ message Portfolio {
   double usd = 2;
 }
 
-message AlgorithmSpec { 
-  AlgorithmId id = 1;
-  string url = 2;
+message ClosePositionResponse {
 }
 
+message DoneTradingResponse {
+}
+
+// Orchestration interfaces.
 message SynchronousDailySimInput {
   google.protobuf.Timestamp start = 1;
   google.protobuf.Timestamp end = 2;
@@ -57,7 +81,4 @@ message AbortInput {
 }
 
 message AbortOutput {
-}
-
-message DoneTradingResponse {
 }

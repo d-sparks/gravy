@@ -62,6 +62,9 @@ type Server struct {
 
 	// Benchmark for the market. (Currently SPY)
 	benchmark *mean.Rolling
+
+	// Bad dates (hack): Skip trading on these days.
+	badDates map[time.Time]struct{}
 }
 
 // NewServer creates an empty daily prices server.
@@ -76,11 +79,19 @@ func NewServer(
 		return nil, fmt.Errorf("Error connecting to postgres: %s", err.Error())
 	}
 
-	var server Server
-	server.db = db
-	server.pricesTableName = dailyPricesTable
-	server.tradingDatesTableName = tradingDatesTable
-	server.cache = map[int32]map[time.Time]*dailyprices_pb.DailyData{}
+	unsafeParse := func(date string) time.Time {
+		timeStr, _ := time.Parse("2006-01-02", date)
+		return timeStr
+	}
+	server := Server{
+		db:                    db,
+		pricesTableName:       dailyPricesTable,
+		tradingDatesTableName: tradingDatesTable,
+		cache:                 map[int32]map[time.Time]*dailyprices_pb.DailyData{},
+		badDates: map[time.Time]struct{}{
+			unsafeParse("2011-02-17"): struct{}{},
+		},
+	}
 
 	go server.RunDebugServer(8080)
 
@@ -422,6 +433,10 @@ func (s *Server) TradingDatesInRange(
 		date, err := time.Parse("2006-01-02T15:04:05Z", dateStr)
 		if err != nil {
 			return nil, fmt.Errorf("Could not parse date `%s`: %s", dateStr, err.Error())
+		}
+		// Skip bad dates: This is a hack to account for questionable data.
+		if _, ok := s.badDates[date]; ok {
+			continue
 		}
 		dateProto, err := ptypes.TimestampProto(date)
 		if err != nil {

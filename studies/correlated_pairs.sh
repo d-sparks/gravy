@@ -26,7 +26,7 @@ go run cmd/algorithm/buyspy/main.go \
 
 # Run
 go run main.go \
-  --start="2005-02-25" \
+  --start="2006-02-26" \
   --end="2020-11-13" \
   --output_dir="${OUTPUT_DIR}" \
   --algorithms="correlatedpairs@localhost:17507,buyandhold@localhost:17502,buyspy@localhost:17503"

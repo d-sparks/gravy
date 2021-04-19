@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'Z8github.com/d-sparks/gravy/supervisor/proto;supervisor_pb',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x10supervisor.proto\x12\nsupervisor\x1a\x1fgoogle/protobuf/timestamp.proto\"#\n\x0b\x41lgorithmId\x12\x14\n\x0c\x61lgorithm_id\x18\x01 \x01(\t\"s\n\x05Order\x12-\n\x0c\x61lgorithm_id\x18\x01 \x01(\x0b\x32\x17.supervisor.AlgorithmId\x12\x0e\n\x06ticker\x18\x02 \x01(\t\x12\x0e\n\x06volume\x18\x03 \x01(\x01\x12\r\n\x05limit\x18\x04 \x01(\x01\x12\x0c\n\x04stop\x18\x05 \x01(\x01\"\x13\n\x11OrderConfirmation\"z\n\tPortfolio\x12\x31\n\x06stocks\x18\x01 \x03(\x0b\x32!.supervisor.Portfolio.StocksEntry\x12\x0b\n\x03usd\x18\x02 \x01(\x01\x1a-\n\x0bStocksEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\"A\n\rAlgorithmSpec\x12#\n\x02id\x18\x01 \x01(\x0b\x32\x17.supervisor.AlgorithmId\x12\x0b\n\x03url\x18\x02 \x01(\t\"\xb1\x01\n\x18SynchronousDailySimInput\x12)\n\x05start\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\noutput_dir\x18\x03 \x01(\t\x12-\n\nalgorithms\x18\x04 \x03(\x0b\x32\x19.supervisor.AlgorithmSpec\"\x1b\n\x19SynchronousDailySimOutput\"\x0c\n\nAbortInput\"\r\n\x0b\x41\x62ortOutput\"\x15\n\x13\x44oneTradingResponse2\xfd\x02\n\nSupervisor\x12@\n\nPlaceOrder\x12\x11.supervisor.Order\x1a\x1d.supervisor.OrderConfirmation\"\x00\x12@\n\x0cGetPortfolio\x12\x17.supervisor.AlgorithmId\x1a\x15.supervisor.Portfolio\"\x00\x12I\n\x0b\x44oneTrading\x12\x17.supervisor.AlgorithmId\x1a\x1f.supervisor.DoneTradingResponse\"\x00\x12\x64\n\x13SynchronousDailySim\x12$.supervisor.SynchronousDailySimInput\x1a%.supervisor.SynchronousDailySimOutput\"\x00\x12:\n\x05\x41\x62ort\x12\x16.supervisor.AbortInput\x1a\x17.supervisor.AbortOutput\"\x00\x42:Z8github.com/d-sparks/gravy/supervisor/proto;supervisor_pbb\x06proto3'
+  serialized_pb=b'\n\x10supervisor.proto\x12\nsupervisor\x1a\x1fgoogle/protobuf/timestamp.proto\"#\n\x0b\x41lgorithmId\x12\x14\n\x0c\x61lgorithm_id\x18\x01 \x01(\t\"A\n\rAlgorithmSpec\x12#\n\x02id\x18\x01 \x01(\x0b\x32\x17.supervisor.AlgorithmId\x12\x0b\n\x03url\x18\x02 \x01(\t\"R\n\x11OpenPositionInput\x12-\n\x0c\x61lgorithm_id\x18\x01 \x01(\x0b\x32\x17.supervisor.AlgorithmId\x12\x0e\n\x06ticker\x18\x02 \x03(\t\"I\n\x0cPositionSpec\x12\n\n\x02id\x18\x01 \x01(\x04\x12-\n\x0c\x61lgorithm_id\x18\x02 \x01(\x0b\x32\x17.supervisor.AlgorithmId\"\x9f\x01\n\x05Order\x12-\n\x0c\x61lgorithm_id\x18\x01 \x01(\x0b\x32\x17.supervisor.AlgorithmId\x12\x0e\n\x06ticker\x18\x02 \x01(\t\x12\x0e\n\x06volume\x18\x03 \x01(\x01\x12\r\n\x05limit\x18\x04 \x01(\x01\x12\x0c\n\x04stop\x18\x05 \x01(\x01\x12*\n\x08position\x18\x06 \x01(\x0b\x32\x18.supervisor.PositionSpec\"\x13\n\x11OrderConfirmation\"z\n\tPortfolio\x12\x31\n\x06stocks\x18\x01 \x03(\x0b\x32!.supervisor.Portfolio.StocksEntry\x12\x0b\n\x03usd\x18\x02 \x01(\x01\x1a-\n\x0bStocksEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\"\x17\n\x15\x43losePositionResponse\"\x15\n\x13\x44oneTradingResponse\"\xb1\x01\n\x18SynchronousDailySimInput\x12)\n\x05start\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x12\n\noutput_dir\x18\x03 \x01(\t\x12-\n\nalgorithms\x18\x04 \x03(\x0b\x32\x19.supervisor.AlgorithmSpec\"\x1b\n\x19SynchronousDailySimOutput\"\x0c\n\nAbortInput\"\r\n\x0b\x41\x62ortOutput2\x98\x04\n\nSupervisor\x12@\n\nPlaceOrder\x12\x11.supervisor.Order\x1a\x1d.supervisor.OrderConfirmation\"\x00\x12@\n\x0cGetPortfolio\x12\x17.supervisor.AlgorithmId\x1a\x15.supervisor.Portfolio\"\x00\x12I\n\x0cOpenPosition\x12\x1d.supervisor.OpenPositionInput\x1a\x18.supervisor.PositionSpec\"\x00\x12N\n\rClosePosition\x12\x18.supervisor.PositionSpec\x1a!.supervisor.ClosePositionResponse\"\x00\x12I\n\x0b\x44oneTrading\x12\x17.supervisor.AlgorithmId\x1a\x1f.supervisor.DoneTradingResponse\"\x00\x12\x64\n\x13SynchronousDailySim\x12$.supervisor.SynchronousDailySimInput\x1a%.supervisor.SynchronousDailySimOutput\"\x00\x12:\n\x05\x41\x62ort\x12\x16.supervisor.AbortInput\x1a\x17.supervisor.AbortOutput\"\x00\x42:Z8github.com/d-sparks/gravy/supervisor/proto;supervisor_pbb\x06proto3'
   ,
   dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -56,6 +56,123 @@ _ALGORITHMID = _descriptor.Descriptor(
   ],
   serialized_start=65,
   serialized_end=100,
+)
+
+
+_ALGORITHMSPEC = _descriptor.Descriptor(
+  name='AlgorithmSpec',
+  full_name='supervisor.AlgorithmSpec',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='id', full_name='supervisor.AlgorithmSpec.id', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='url', full_name='supervisor.AlgorithmSpec.url', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=102,
+  serialized_end=167,
+)
+
+
+_OPENPOSITIONINPUT = _descriptor.Descriptor(
+  name='OpenPositionInput',
+  full_name='supervisor.OpenPositionInput',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='algorithm_id', full_name='supervisor.OpenPositionInput.algorithm_id', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='ticker', full_name='supervisor.OpenPositionInput.ticker', index=1,
+      number=2, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=169,
+  serialized_end=251,
+)
+
+
+_POSITIONSPEC = _descriptor.Descriptor(
+  name='PositionSpec',
+  full_name='supervisor.PositionSpec',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='id', full_name='supervisor.PositionSpec.id', index=0,
+      number=1, type=4, cpp_type=4, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='algorithm_id', full_name='supervisor.PositionSpec.algorithm_id', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=253,
+  serialized_end=326,
 )
 
 
@@ -102,6 +219,13 @@ _ORDER = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='position', full_name='supervisor.Order.position', index=5,
+      number=6, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -114,8 +238,8 @@ _ORDER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=102,
-  serialized_end=217,
+  serialized_start=329,
+  serialized_end=488,
 )
 
 
@@ -139,8 +263,8 @@ _ORDERCONFIRMATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=219,
-  serialized_end=238,
+  serialized_start=490,
+  serialized_end=509,
 )
 
 
@@ -178,8 +302,8 @@ _PORTFOLIO_STOCKSENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=317,
-  serialized_end=362,
+  serialized_start=588,
+  serialized_end=633,
 )
 
 _PORTFOLIO = _descriptor.Descriptor(
@@ -216,33 +340,19 @@ _PORTFOLIO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=240,
-  serialized_end=362,
+  serialized_start=511,
+  serialized_end=633,
 )
 
 
-_ALGORITHMSPEC = _descriptor.Descriptor(
-  name='AlgorithmSpec',
-  full_name='supervisor.AlgorithmSpec',
+_CLOSEPOSITIONRESPONSE = _descriptor.Descriptor(
+  name='ClosePositionResponse',
+  full_name='supervisor.ClosePositionResponse',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
-    _descriptor.FieldDescriptor(
-      name='id', full_name='supervisor.AlgorithmSpec.id', index=0,
-      number=1, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='url', full_name='supervisor.AlgorithmSpec.url', index=1,
-      number=2, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -255,8 +365,33 @@ _ALGORITHMSPEC = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=364,
-  serialized_end=429,
+  serialized_start=635,
+  serialized_end=658,
+)
+
+
+_DONETRADINGRESPONSE = _descriptor.Descriptor(
+  name='DoneTradingResponse',
+  full_name='supervisor.DoneTradingResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=660,
+  serialized_end=681,
 )
 
 
@@ -308,8 +443,8 @@ _SYNCHRONOUSDAILYSIMINPUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=432,
-  serialized_end=609,
+  serialized_start=684,
+  serialized_end=861,
 )
 
 
@@ -333,8 +468,8 @@ _SYNCHRONOUSDAILYSIMOUTPUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=611,
-  serialized_end=638,
+  serialized_start=863,
+  serialized_end=890,
 )
 
 
@@ -358,8 +493,8 @@ _ABORTINPUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=640,
-  serialized_end=652,
+  serialized_start=892,
+  serialized_end=904,
 )
 
 
@@ -383,52 +518,33 @@ _ABORTOUTPUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=654,
-  serialized_end=667,
+  serialized_start=906,
+  serialized_end=919,
 )
 
-
-_DONETRADINGRESPONSE = _descriptor.Descriptor(
-  name='DoneTradingResponse',
-  full_name='supervisor.DoneTradingResponse',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=669,
-  serialized_end=690,
-)
-
+_ALGORITHMSPEC.fields_by_name['id'].message_type = _ALGORITHMID
+_OPENPOSITIONINPUT.fields_by_name['algorithm_id'].message_type = _ALGORITHMID
+_POSITIONSPEC.fields_by_name['algorithm_id'].message_type = _ALGORITHMID
 _ORDER.fields_by_name['algorithm_id'].message_type = _ALGORITHMID
+_ORDER.fields_by_name['position'].message_type = _POSITIONSPEC
 _PORTFOLIO_STOCKSENTRY.containing_type = _PORTFOLIO
 _PORTFOLIO.fields_by_name['stocks'].message_type = _PORTFOLIO_STOCKSENTRY
-_ALGORITHMSPEC.fields_by_name['id'].message_type = _ALGORITHMID
 _SYNCHRONOUSDAILYSIMINPUT.fields_by_name['start'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _SYNCHRONOUSDAILYSIMINPUT.fields_by_name['end'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _SYNCHRONOUSDAILYSIMINPUT.fields_by_name['algorithms'].message_type = _ALGORITHMSPEC
 DESCRIPTOR.message_types_by_name['AlgorithmId'] = _ALGORITHMID
+DESCRIPTOR.message_types_by_name['AlgorithmSpec'] = _ALGORITHMSPEC
+DESCRIPTOR.message_types_by_name['OpenPositionInput'] = _OPENPOSITIONINPUT
+DESCRIPTOR.message_types_by_name['PositionSpec'] = _POSITIONSPEC
 DESCRIPTOR.message_types_by_name['Order'] = _ORDER
 DESCRIPTOR.message_types_by_name['OrderConfirmation'] = _ORDERCONFIRMATION
 DESCRIPTOR.message_types_by_name['Portfolio'] = _PORTFOLIO
-DESCRIPTOR.message_types_by_name['AlgorithmSpec'] = _ALGORITHMSPEC
+DESCRIPTOR.message_types_by_name['ClosePositionResponse'] = _CLOSEPOSITIONRESPONSE
+DESCRIPTOR.message_types_by_name['DoneTradingResponse'] = _DONETRADINGRESPONSE
 DESCRIPTOR.message_types_by_name['SynchronousDailySimInput'] = _SYNCHRONOUSDAILYSIMINPUT
 DESCRIPTOR.message_types_by_name['SynchronousDailySimOutput'] = _SYNCHRONOUSDAILYSIMOUTPUT
 DESCRIPTOR.message_types_by_name['AbortInput'] = _ABORTINPUT
 DESCRIPTOR.message_types_by_name['AbortOutput'] = _ABORTOUTPUT
-DESCRIPTOR.message_types_by_name['DoneTradingResponse'] = _DONETRADINGRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 AlgorithmId = _reflection.GeneratedProtocolMessageType('AlgorithmId', (_message.Message,), {
@@ -437,6 +553,27 @@ AlgorithmId = _reflection.GeneratedProtocolMessageType('AlgorithmId', (_message.
   # @@protoc_insertion_point(class_scope:supervisor.AlgorithmId)
   })
 _sym_db.RegisterMessage(AlgorithmId)
+
+AlgorithmSpec = _reflection.GeneratedProtocolMessageType('AlgorithmSpec', (_message.Message,), {
+  'DESCRIPTOR' : _ALGORITHMSPEC,
+  '__module__' : 'supervisor_pb2'
+  # @@protoc_insertion_point(class_scope:supervisor.AlgorithmSpec)
+  })
+_sym_db.RegisterMessage(AlgorithmSpec)
+
+OpenPositionInput = _reflection.GeneratedProtocolMessageType('OpenPositionInput', (_message.Message,), {
+  'DESCRIPTOR' : _OPENPOSITIONINPUT,
+  '__module__' : 'supervisor_pb2'
+  # @@protoc_insertion_point(class_scope:supervisor.OpenPositionInput)
+  })
+_sym_db.RegisterMessage(OpenPositionInput)
+
+PositionSpec = _reflection.GeneratedProtocolMessageType('PositionSpec', (_message.Message,), {
+  'DESCRIPTOR' : _POSITIONSPEC,
+  '__module__' : 'supervisor_pb2'
+  # @@protoc_insertion_point(class_scope:supervisor.PositionSpec)
+  })
+_sym_db.RegisterMessage(PositionSpec)
 
 Order = _reflection.GeneratedProtocolMessageType('Order', (_message.Message,), {
   'DESCRIPTOR' : _ORDER,
@@ -467,12 +604,19 @@ Portfolio = _reflection.GeneratedProtocolMessageType('Portfolio', (_message.Mess
 _sym_db.RegisterMessage(Portfolio)
 _sym_db.RegisterMessage(Portfolio.StocksEntry)
 
-AlgorithmSpec = _reflection.GeneratedProtocolMessageType('AlgorithmSpec', (_message.Message,), {
-  'DESCRIPTOR' : _ALGORITHMSPEC,
+ClosePositionResponse = _reflection.GeneratedProtocolMessageType('ClosePositionResponse', (_message.Message,), {
+  'DESCRIPTOR' : _CLOSEPOSITIONRESPONSE,
   '__module__' : 'supervisor_pb2'
-  # @@protoc_insertion_point(class_scope:supervisor.AlgorithmSpec)
+  # @@protoc_insertion_point(class_scope:supervisor.ClosePositionResponse)
   })
-_sym_db.RegisterMessage(AlgorithmSpec)
+_sym_db.RegisterMessage(ClosePositionResponse)
+
+DoneTradingResponse = _reflection.GeneratedProtocolMessageType('DoneTradingResponse', (_message.Message,), {
+  'DESCRIPTOR' : _DONETRADINGRESPONSE,
+  '__module__' : 'supervisor_pb2'
+  # @@protoc_insertion_point(class_scope:supervisor.DoneTradingResponse)
+  })
+_sym_db.RegisterMessage(DoneTradingResponse)
 
 SynchronousDailySimInput = _reflection.GeneratedProtocolMessageType('SynchronousDailySimInput', (_message.Message,), {
   'DESCRIPTOR' : _SYNCHRONOUSDAILYSIMINPUT,
@@ -502,13 +646,6 @@ AbortOutput = _reflection.GeneratedProtocolMessageType('AbortOutput', (_message.
   })
 _sym_db.RegisterMessage(AbortOutput)
 
-DoneTradingResponse = _reflection.GeneratedProtocolMessageType('DoneTradingResponse', (_message.Message,), {
-  'DESCRIPTOR' : _DONETRADINGRESPONSE,
-  '__module__' : 'supervisor_pb2'
-  # @@protoc_insertion_point(class_scope:supervisor.DoneTradingResponse)
-  })
-_sym_db.RegisterMessage(DoneTradingResponse)
-
 
 DESCRIPTOR._options = None
 _PORTFOLIO_STOCKSENTRY._options = None
@@ -520,8 +657,8 @@ _SUPERVISOR = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=693,
-  serialized_end=1074,
+  serialized_start=922,
+  serialized_end=1458,
   methods=[
   _descriptor.MethodDescriptor(
     name='PlaceOrder',
@@ -544,9 +681,29 @@ _SUPERVISOR = _descriptor.ServiceDescriptor(
     create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
+    name='OpenPosition',
+    full_name='supervisor.Supervisor.OpenPosition',
+    index=2,
+    containing_service=None,
+    input_type=_OPENPOSITIONINPUT,
+    output_type=_POSITIONSPEC,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='ClosePosition',
+    full_name='supervisor.Supervisor.ClosePosition',
+    index=3,
+    containing_service=None,
+    input_type=_POSITIONSPEC,
+    output_type=_CLOSEPOSITIONRESPONSE,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
     name='DoneTrading',
     full_name='supervisor.Supervisor.DoneTrading',
-    index=2,
+    index=4,
     containing_service=None,
     input_type=_ALGORITHMID,
     output_type=_DONETRADINGRESPONSE,
@@ -556,7 +713,7 @@ _SUPERVISOR = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='SynchronousDailySim',
     full_name='supervisor.Supervisor.SynchronousDailySim',
-    index=3,
+    index=5,
     containing_service=None,
     input_type=_SYNCHRONOUSDAILYSIMINPUT,
     output_type=_SYNCHRONOUSDAILYSIMOUTPUT,
@@ -566,7 +723,7 @@ _SUPERVISOR = _descriptor.ServiceDescriptor(
   _descriptor.MethodDescriptor(
     name='Abort',
     full_name='supervisor.Supervisor.Abort',
-    index=4,
+    index=6,
     containing_service=None,
     input_type=_ABORTINPUT,
     output_type=_ABORTOUTPUT,
