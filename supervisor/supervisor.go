@@ -92,7 +92,8 @@ type S struct {
 	totalBuys           map[string]float64
 
 	// Locks and unlocks when simulations or trading modes are in progress.
-	mu sync.Mutex
+	mu     sync.Mutex
+	dataMu sync.Mutex
 }
 
 // New creates a new supervisor in the given trading mode.
@@ -583,8 +584,8 @@ func (s *S) OpenPosition(
 	ctx context.Context,
 	req *supervisor_pb.OpenPositionInput,
 ) (*supervisor_pb.PositionSpec, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.dataMu.Lock()
+	defer s.dataMu.Unlock()
 	id := s.nextPosition
 	output := &supervisor_pb.PositionSpec{Id: id, AlgorithmId: req.AlgorithmId}
 
@@ -632,7 +633,6 @@ func (s *S) updatePositionsEndOfDay(data *dailyprices_pb.DailyData) {
 		s.numOpeningPositions[position.algorithmID] += 1
 		delete(s.openingPositions, id)
 	}
-
 }
 
 // ClosePosition closes the position. Used only for logging.
@@ -640,6 +640,8 @@ func (s *S) ClosePosition(
 	ctx context.Context,
 	positionSpec *supervisor_pb.PositionSpec,
 ) (*supervisor_pb.ClosePositionResponse, error) {
+	s.dataMu.Lock()
+	defer s.dataMu.Unlock()
 	id := positionSpec.GetId()
 	algorithmID := positionSpec.GetAlgorithmId().GetAlgorithmId()
 	if algoPositions, ok := s.positions[algorithmID]; ok {
