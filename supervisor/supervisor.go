@@ -40,6 +40,16 @@ const (
 	LiveTM
 )
 
+// Positions are abstract units which can be reasoned about for analyzing performance of strategies.
+type Position struct {
+	algorithmID  string
+	tickers      map[string]struct{}
+	initQuantity map[string]float64
+	initPrices   map[string]float64
+	initUSD      float64
+	tradingDays  int
+}
+
 // S is the supervisor.
 type S struct {
 	supervisor_pb.UnimplementedSupervisorServer
@@ -66,13 +76,20 @@ type S struct {
 	tradingMode TradingMode
 
 	// Logging (csv and timescale).
-	algorithmsOut      map[string]*bufio.Writer
-	algorithmsOutOrder []string
-	out                *bufio.Writer
-	timescaleURL       string
-	timescaleContext   context.Context
-	timescaleID        string
-	timescaleDB        *pgx.Conn
+	algorithmsOut       map[string]*bufio.Writer
+	algorithmsOutOrder  []string
+	out                 *bufio.Writer
+	timescaleURL        string
+	timescaleContext    context.Context
+	timescaleID         string
+	timescaleDB         *pgx.Conn
+	nextPosition        uint64
+	positions           map[string]map[uint64]*Position
+	closingPositions    map[string]map[uint64]*Position
+	openingPositions    map[uint64]*Position
+	numOpeningPositions map[string]int
+	totalSells          map[string]float64
+	totalBuys           map[string]float64
 
 	// Locks and unlocks when simulations or trading modes are in progress.
 	mu sync.Mutex
@@ -80,7 +97,17 @@ type S struct {
 
 // New creates a new supervisor in the given trading mode.
 func New(tradingMode TradingMode, timescaleURL string) (*S, error) {
-	return &S{tradingMode: tradingMode, timescaleURL: timescaleURL}, nil
+	return &S{
+		tradingMode:         tradingMode,
+		timescaleURL:        timescaleURL,
+		nextPosition:        1,
+		positions:           map[string]map[uint64]*Position{},
+		closingPositions:    map[string]map[uint64]*Position{},
+		openingPositions:    map[uint64]*Position{},
+		numOpeningPositions: map[string]int{},
+		totalSells:          map[string]float64{},
+		totalBuys:           map[string]float64{},
+	}, nil
 }
 
 // Init initializes the supervisor, in particular the registrar and timescale DB. Returns the timescaleDB table.
@@ -187,41 +214,54 @@ func (s *S) handleOrder(
 	portfolio := s.portfolios[algorithmID]
 	ticker := order.GetTicker()
 	amountHeld, holding := portfolio.GetStocks()[ticker]
-	if order.GetVolume() < 0 && (!holding || amountHeld < order.GetVolume()) {
+	volume := order.GetVolume()
+	if volume < 0 && (!holding || amountHeld < volume) {
 		// Don't have enough of the stock to sell.
-		s.logOrder(tradingDate, algorithmID, false, "NO_UNITS", order.GetVolume(), order.GetLimit(), ticker)
+		s.logOrder(tradingDate, algorithmID, false, "NO_UNITS", volume, order.GetLimit(), ticker)
 		return false
-	} else if order.GetVolume()*order.GetLimit() > portfolio.GetUsd() {
+	} else if volume*order.GetLimit() > portfolio.GetUsd() {
 		// Don't have enough money to pay for the stocks.
-		s.logOrder(tradingDate, algorithmID, false, "NO_CASH", order.GetVolume(), order.GetLimit(), ticker)
+		s.logOrder(tradingDate, algorithmID, false, "NO_CASH", volume, order.GetLimit(), ticker)
 		return false
 	}
 
 	prices, ok := dailyPrices.GetPrices()[ticker]
 	if !ok {
 		// This stock isn't on the market.
-		s.logOrder(tradingDate, algorithmID, false, "NOT_LISTED", order.GetVolume(), order.GetLimit(), ticker)
+		s.logOrder(tradingDate, algorithmID, false, "NOT_LISTED", volume, order.GetLimit(), ticker)
 		return false
 	}
 	open, close := prices.GetOpen(), prices.GetClose()
 	price := (open + close) / 2.0
 
-	if order.GetVolume() > 0 && price <= order.GetLimit() {
+	if volume > 0 && price <= order.GetLimit() {
 		// We checked above that volume * limit <= $USD, and since here we have conditioned on price <= limit,
 		// we know volume * price <= $USD as well.
-		portfolio.Usd -= order.GetVolume() * price
-		portfolio.Stocks[ticker] += order.GetVolume()
-		s.logOrder(tradingDate, algorithmID, true, "BUY", order.GetVolume(), price, ticker)
+		portfolio.Usd -= volume * price
+		portfolio.Stocks[ticker] += volume
+		s.logOrder(tradingDate, algorithmID, true, "BUY", volume, price, ticker)
+		if order.GetPosition().GetId() != 0 {
+			// Currently only support making trades in a position on the day it is opened.
+			// To change this, check both s.positions and s.openingPositions.
+			s.openingPositions[order.GetPosition().GetId()].initUSD -= volume * price
+		}
+		s.totalBuys[algorithmID] += volume * price
 		return true
-	} else if order.GetVolume() < 0 && price >= order.GetStop() {
+	} else if volume < 0 && price >= order.GetStop() {
 		// We checked already that we have enough stock to sell.
-		portfolio.Usd -= order.GetVolume() * price
-		portfolio.Stocks[ticker] += order.GetVolume()
-		s.logOrder(tradingDate, algorithmID, true, "SELL", order.GetVolume(), price, ticker)
+		portfolio.Usd -= volume * price
+		portfolio.Stocks[ticker] += volume
+		s.logOrder(tradingDate, algorithmID, true, "SELL", volume, price, ticker)
+		if order.GetPosition().GetId() != 0 {
+			// Currently only support making trades in a position on the day it is opened.
+			// To change this, check both s.positions and s.openingPositions.
+			s.openingPositions[order.GetPosition().GetId()].initUSD -= volume * price
+		}
+		s.totalSells[algorithmID] -= volume * price
 		return true
 	}
 
-	s.logOrder(tradingDate, algorithmID, false, "BAD_LIMIT", order.GetVolume(), price, ticker)
+	s.logOrder(tradingDate, algorithmID, false, "BAD_LIMIT", volume, price, ticker)
 	// TODO: Handle the case of non-expiring orders.
 	return false
 }
@@ -515,24 +555,103 @@ func (s *S) SynchronousDailySim(
 		}
 
 		// Try to fulfill pending orders.
-		tradingPrices, err := s.fillPendingOrders(ctx, tradingDate)
+		dailyData, err := s.fillPendingOrders(ctx, tradingDate)
 		if err != nil {
 			return nil, err
 		}
 
 		// Check if any stocks have been delisted. If they have, close out the position for algorithms holding
 		// that stock.
-		s.closeDelistedPositions(ctx, algorithmDate, tradingPrices)
+		s.closeDelistedPositions(ctx, algorithmDate, dailyData)
 
 		// Update metrics.
-		s.updateMetrics(tradingPrices)
+		s.updateMetrics(dailyData)
+
+		// Update positions data.
+		s.updatePositionsEndOfDay(dailyData)
 
 		// Log for this tick.
-		s.logTick(tradingDate, tradingPrices)
+		s.logTick(tradingDate, dailyData)
 	}
 
 	var synchronousDailySimOutput supervisor_pb.SynchronousDailySimOutput
 	return &synchronousDailySimOutput, nil
+}
+
+// OpenPosition assigns a new position id and tracks the position.
+func (s *S) OpenPosition(
+	ctx context.Context,
+	req *supervisor_pb.OpenPositionInput,
+) (*supervisor_pb.PositionSpec, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	id := s.nextPosition
+	output := &supervisor_pb.PositionSpec{Id: id, AlgorithmId: req.AlgorithmId}
+
+	s.openingPositions[id] = &Position{
+		algorithmID:  req.GetAlgorithmId().GetAlgorithmId(),
+		tickers:      map[string]struct{}{},
+		initQuantity: map[string]float64{},
+		initPrices:   map[string]float64{},
+		initUSD:      0,
+		tradingDays:  1,
+	}
+	for _, ticker := range req.GetTicker() {
+		s.openingPositions[id].tickers[ticker] = struct{}{}
+		portfolio := s.portfolios[req.GetAlgorithmId().GetAlgorithmId()]
+		s.openingPositions[id].initQuantity[ticker] = portfolio.GetStocks()[ticker]
+	}
+
+	s.nextPosition += 1
+	return output, nil
+}
+
+// updatePositionsEndOfDay updates the positions: increase trading days by 1. Moves all openingPositions to positions,
+// recording the prices of the assets in position.
+func (s *S) updatePositionsEndOfDay(data *dailyprices_pb.DailyData) {
+	// Increase number of trading days on each open position.
+	for _, algoPositions := range s.positions {
+		for _, position := range algoPositions {
+			position.tradingDays += 1
+		}
+	}
+
+	// Opening positions.
+	s.numOpeningPositions = map[string]int{}
+	for _, algorithmID := range s.algorithmsOutOrder {
+		s.numOpeningPositions[algorithmID] = 0
+	}
+	for id, position := range s.openingPositions {
+		for ticker := range position.tickers {
+			position.initPrices[ticker] = data.GetPrices()[ticker].GetClose()
+		}
+		if _, ok := s.positions[position.algorithmID]; !ok {
+			s.positions[position.algorithmID] = map[uint64]*Position{}
+		}
+		s.positions[position.algorithmID][id] = position
+		s.numOpeningPositions[position.algorithmID] += 1
+		delete(s.openingPositions, id)
+	}
+
+}
+
+// ClosePosition closes the position. Used only for logging.
+func (s *S) ClosePosition(
+	ctx context.Context,
+	positionSpec *supervisor_pb.PositionSpec,
+) (*supervisor_pb.ClosePositionResponse, error) {
+	id := positionSpec.GetId()
+	algorithmID := positionSpec.GetAlgorithmId().GetAlgorithmId()
+	if algoPositions, ok := s.positions[algorithmID]; ok {
+		if position, ok := algoPositions[id]; ok {
+			if _, ok = s.closingPositions[algorithmID]; !ok {
+				s.closingPositions[algorithmID] = map[uint64]*Position{}
+			}
+			s.closingPositions[algorithmID][id] = position
+			delete(algoPositions, id)
+		}
+	}
+	return &supervisor_pb.ClosePositionResponse{}, nil
 }
 
 // DoneTrading lets an algorithm signal that it is done trading in this tick.

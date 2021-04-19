@@ -19,6 +19,8 @@ const _ = grpc.SupportPackageIsVersion7
 type SupervisorClient interface {
 	PlaceOrder(ctx context.Context, in *Order, opts ...grpc.CallOption) (*OrderConfirmation, error)
 	GetPortfolio(ctx context.Context, in *AlgorithmId, opts ...grpc.CallOption) (*Portfolio, error)
+	OpenPosition(ctx context.Context, in *OpenPositionInput, opts ...grpc.CallOption) (*PositionSpec, error)
+	ClosePosition(ctx context.Context, in *PositionSpec, opts ...grpc.CallOption) (*ClosePositionResponse, error)
 	DoneTrading(ctx context.Context, in *AlgorithmId, opts ...grpc.CallOption) (*DoneTradingResponse, error)
 	SynchronousDailySim(ctx context.Context, in *SynchronousDailySimInput, opts ...grpc.CallOption) (*SynchronousDailySimOutput, error)
 	Abort(ctx context.Context, in *AbortInput, opts ...grpc.CallOption) (*AbortOutput, error)
@@ -44,6 +46,24 @@ func (c *supervisorClient) PlaceOrder(ctx context.Context, in *Order, opts ...gr
 func (c *supervisorClient) GetPortfolio(ctx context.Context, in *AlgorithmId, opts ...grpc.CallOption) (*Portfolio, error) {
 	out := new(Portfolio)
 	err := c.cc.Invoke(ctx, "/supervisor.Supervisor/GetPortfolio", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *supervisorClient) OpenPosition(ctx context.Context, in *OpenPositionInput, opts ...grpc.CallOption) (*PositionSpec, error) {
+	out := new(PositionSpec)
+	err := c.cc.Invoke(ctx, "/supervisor.Supervisor/OpenPosition", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *supervisorClient) ClosePosition(ctx context.Context, in *PositionSpec, opts ...grpc.CallOption) (*ClosePositionResponse, error) {
+	out := new(ClosePositionResponse)
+	err := c.cc.Invoke(ctx, "/supervisor.Supervisor/ClosePosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +103,8 @@ func (c *supervisorClient) Abort(ctx context.Context, in *AbortInput, opts ...gr
 type SupervisorServer interface {
 	PlaceOrder(context.Context, *Order) (*OrderConfirmation, error)
 	GetPortfolio(context.Context, *AlgorithmId) (*Portfolio, error)
+	OpenPosition(context.Context, *OpenPositionInput) (*PositionSpec, error)
+	ClosePosition(context.Context, *PositionSpec) (*ClosePositionResponse, error)
 	DoneTrading(context.Context, *AlgorithmId) (*DoneTradingResponse, error)
 	SynchronousDailySim(context.Context, *SynchronousDailySimInput) (*SynchronousDailySimOutput, error)
 	Abort(context.Context, *AbortInput) (*AbortOutput, error)
@@ -98,6 +120,12 @@ func (UnimplementedSupervisorServer) PlaceOrder(context.Context, *Order) (*Order
 }
 func (UnimplementedSupervisorServer) GetPortfolio(context.Context, *AlgorithmId) (*Portfolio, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPortfolio not implemented")
+}
+func (UnimplementedSupervisorServer) OpenPosition(context.Context, *OpenPositionInput) (*PositionSpec, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OpenPosition not implemented")
+}
+func (UnimplementedSupervisorServer) ClosePosition(context.Context, *PositionSpec) (*ClosePositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClosePosition not implemented")
 }
 func (UnimplementedSupervisorServer) DoneTrading(context.Context, *AlgorithmId) (*DoneTradingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoneTrading not implemented")
@@ -153,6 +181,42 @@ func _Supervisor_GetPortfolio_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SupervisorServer).GetPortfolio(ctx, req.(*AlgorithmId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Supervisor_OpenPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OpenPositionInput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SupervisorServer).OpenPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/supervisor.Supervisor/OpenPosition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SupervisorServer).OpenPosition(ctx, req.(*OpenPositionInput))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Supervisor_ClosePosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PositionSpec)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SupervisorServer).ClosePosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/supervisor.Supervisor/ClosePosition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SupervisorServer).ClosePosition(ctx, req.(*PositionSpec))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -222,6 +286,14 @@ var _Supervisor_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPortfolio",
 			Handler:    _Supervisor_GetPortfolio_Handler,
+		},
+		{
+			MethodName: "OpenPosition",
+			Handler:    _Supervisor_OpenPosition_Handler,
+		},
+		{
+			MethodName: "ClosePosition",
+			Handler:    _Supervisor_ClosePosition_Handler,
 		},
 		{
 			MethodName: "DoneTrading",

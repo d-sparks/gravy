@@ -24,6 +24,16 @@ class SupervisorStub(object):
                 request_serializer=supervisor__pb2.AlgorithmId.SerializeToString,
                 response_deserializer=supervisor__pb2.Portfolio.FromString,
                 )
+        self.OpenPosition = channel.unary_unary(
+                '/supervisor.Supervisor/OpenPosition',
+                request_serializer=supervisor__pb2.OpenPositionInput.SerializeToString,
+                response_deserializer=supervisor__pb2.PositionSpec.FromString,
+                )
+        self.ClosePosition = channel.unary_unary(
+                '/supervisor.Supervisor/ClosePosition',
+                request_serializer=supervisor__pb2.PositionSpec.SerializeToString,
+                response_deserializer=supervisor__pb2.ClosePositionResponse.FromString,
+                )
         self.DoneTrading = channel.unary_unary(
                 '/supervisor.Supervisor/DoneTrading',
                 request_serializer=supervisor__pb2.AlgorithmId.SerializeToString,
@@ -51,6 +61,18 @@ class SupervisorServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetPortfolio(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def OpenPosition(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ClosePosition(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -86,6 +108,16 @@ def add_SupervisorServicer_to_server(servicer, server):
                     servicer.GetPortfolio,
                     request_deserializer=supervisor__pb2.AlgorithmId.FromString,
                     response_serializer=supervisor__pb2.Portfolio.SerializeToString,
+            ),
+            'OpenPosition': grpc.unary_unary_rpc_method_handler(
+                    servicer.OpenPosition,
+                    request_deserializer=supervisor__pb2.OpenPositionInput.FromString,
+                    response_serializer=supervisor__pb2.PositionSpec.SerializeToString,
+            ),
+            'ClosePosition': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClosePosition,
+                    request_deserializer=supervisor__pb2.PositionSpec.FromString,
+                    response_serializer=supervisor__pb2.ClosePositionResponse.SerializeToString,
             ),
             'DoneTrading': grpc.unary_unary_rpc_method_handler(
                     servicer.DoneTrading,
@@ -143,6 +175,40 @@ class Supervisor(object):
         return grpc.experimental.unary_unary(request, target, '/supervisor.Supervisor/GetPortfolio',
             supervisor__pb2.AlgorithmId.SerializeToString,
             supervisor__pb2.Portfolio.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def OpenPosition(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/supervisor.Supervisor/OpenPosition',
+            supervisor__pb2.OpenPositionInput.SerializeToString,
+            supervisor__pb2.PositionSpec.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ClosePosition(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/supervisor.Supervisor/ClosePosition',
+            supervisor__pb2.PositionSpec.SerializeToString,
+            supervisor__pb2.ClosePositionResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

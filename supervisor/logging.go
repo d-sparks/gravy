@@ -97,23 +97,67 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 
 	ix := 2
 	for algorithmID := range s.registrar.Algorithms {
-		portfolioValue := 0.0
+		portfolio := s.portfolios[algorithmID]
+		portfolioValue := gravy.PortfolioValue(portfolio, dailyData)
+		usd := portfolio.GetUsd()
+
+		// Calculate "in position" value
+		inPositionStocks := map[string]struct{}{}
+		for _, position := range s.positions[algorithmID] {
+			for ticker := range position.tickers {
+				inPositionStocks[ticker] = struct{}{}
+			}
+		}
+		inPositionValue := 0.0
+		for ticker := range inPositionStocks {
+			inPositionValue += portfolio.GetStocks()[ticker] * dailyData.GetPrices()[ticker].GetClose()
+		}
+
+		// Calculate "out of position" value (total value less cash and in position value)
+		oopValue := portfolioValue - usd - inPositionValue
+
+		// Buys and sells value
+		buysValue := s.totalBuys[algorithmID]
+		s.totalBuys[algorithmID] = 0.0
+		sellsValue := s.totalSells[algorithmID]
+		s.totalSells[algorithmID] = 0.0
+
+		// Closing positions
+		numClosingPositions := len(s.closingPositions[algorithmID])
+		s.closingPositions[algorithmID] = map[uint64]*Position{}
+
+		values := map[string]float64{
+			"portfolio_value":         portfolioValue,
+			"usd":                     usd,
+			"pos_value":               inPositionValue,
+			"oop_value":               oopValue,
+			"oop_deviation_min":       0.0, // TODO
+			"oop_deviation_max":       0.0, // TODO
+			"oop_deviation_10p":       0.0, // TODO
+			"oop_deviation_25p":       0.0, // TODO
+			"oop_deviation_50p":       0.0, // TODO
+			"oop_deviation_75p":       0.0, // TODO
+			"oop_deviation_90p":       0.0, // TODO
+			"alpha_15":                0.0, // TODO
+			"alpha_35":                0.0, // TODO
+			"alpha_252":               s.alpha[algorithmID].Alpha(),
+			"beta_15":                 0.0, // TODO
+			"beta_35":                 0.0, // TODO
+			"beta_252":                s.alpha[algorithmID].Beta(),
+			"buys_value":              buysValue,
+			"sells_value":             sellsValue,
+			"num_closing_positions":   float64(numClosingPositions),
+			"num_opening_positions":   float64(s.numOpeningPositions[algorithmID]),
+			"closing_pos_return_min":  0.0, // TODO
+			"closing_pos_return_max":  0.0, // TODO
+			"closing_pos_return_mean": 0.0, // TODO
+		}
+
 		for _, col := range perAlgorithmCols {
 			algoCol := fmt.Sprintf("%s_%s", algorithmID, col)
 			cols = append(cols, algoCol)
 			switch col {
-			case "usd":
-				vals = append(vals, fmt.Sprintf("%f", s.portfolios[algorithmID].GetUsd()))
-			case "portfolio_value":
-				portfolioValue = gravy.PortfolioValue(s.portfolios[algorithmID], dailyData)
-				vals = append(vals, fmt.Sprintf("%f", portfolioValue))
-			case "alpha_252":
-				vals = append(vals, fmt.Sprintf("%f", s.alpha[algorithmID].Alpha()))
-			case "beta_252":
-				vals = append(vals, fmt.Sprintf("%f", s.alpha[algorithmID].Beta()))
 			case "significant_holdings":
-				// This is a hack depending on the ordering of the algo cols above, we know we will
-				// calculate portfolio value before this column.
 				tickers, weights := gravy.SignificantAllocations(
 					s.portfolios[algorithmID],
 					dailyData,
@@ -125,7 +169,7 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 				}
 				vals = append(vals, strings.Join(colonSeparated, " "))
 			default:
-				vals = append(vals, "0.0")
+				vals = append(vals, fmt.Sprintf("%f", values[col]))
 			}
 
 			wildcards = append(wildcards, fmt.Sprintf("$%d", ix))
