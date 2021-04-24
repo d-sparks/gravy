@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ var perAlgorithmCols = []string{
 	"closing_pos_return_max",
 	"closing_pos_return_mean",
 	"significant_holdings",
+	"closing_num_bogus",
 }
 
 // initTimescaleDB creates a new unique identifier and creates and initializes a TimescaleDB for this session.
@@ -112,7 +114,7 @@ func (s *S) positionReturn(
 	}
 
 	// Check for bogus position.
-	if initValue <= 1e-5 {
+	if initValue <= 1.0 {
 		return 0.0, 0.0, false
 	}
 
@@ -134,15 +136,20 @@ func (s *S) calculateClosingPositionsDistribution(
 	portfolio *supervisor_pb.Portfolio,
 	dailyData *dailyprices_pb.DailyData,
 	closingPositions map[uint64]*Position,
-) *gravy.Distribution {
+) (*gravy.Distribution, int) {
 	values := make([]float64, len(closingPositions))
 	i := 0
+	numBogus := 0
 	for _, position := range closingPositions {
-		perf, altPerf, _ := s.positionReturn(portfolio, dailyData, position)
+		perf, altPerf, ok := s.positionReturn(portfolio, dailyData, position)
+		if !ok || math.IsNaN(perf) || math.IsNaN(altPerf) || math.Abs(perf)+math.Abs(altPerf) > 1000.0 {
+			numBogus += 1
+			continue
+		}
 		values[i] = perf - altPerf
 	}
 	lambda := func(i int) float64 { return values[i] }
-	return gravy.CalculateDistribution(0, len(values), lambda)
+	return gravy.CalculateDistribution(0, len(values), lambda), numBogus
 }
 
 // calculateOOPDistribution calculates a gravy.Distribution based on portfolio value of all stocks not in positions.
@@ -200,7 +207,7 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 
 		// Closing positions
 		numClosingPositions := len(s.closingPositions[algorithmID])
-		closingPosDist := s.calculateClosingPositionsDistribution(
+		closingPosDist, numBogus := s.calculateClosingPositionsDistribution(
 			portfolio,
 			dailyData,
 			s.closingPositions[algorithmID],
@@ -232,6 +239,7 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 			"closing_pos_return_min":  closingPosDist.Min,
 			"closing_pos_return_max":  closingPosDist.Max,
 			"closing_pos_return_mean": closingPosDist.Mean,
+			"closing_num_bogus":       float64(numBogus),
 		}
 
 		for _, col := range perAlgorithmCols {
