@@ -30,3 +30,8 @@ func TimePIDSeed() int64 {
 	pid := int64(os.Getpid())
 	return now % (pid * pid)
 }
+
+// AnnualizedPerf extrapolates the annual return from an arbitrary number of trading days.
+func AnnualizedPerf(init float64, mature float64, tradingDays int) float64 {
+	return math.Pow(mature/init, 252.0/float64(tradingDays))
+}
