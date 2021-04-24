@@ -318,6 +318,11 @@ class CorrelatedPairs(algorithm_io_pb2_grpc.AlgorithmServicer):
         remaining_limit = portfolio_helpers.remaining_limit(portfolio, orders)
         uniform_targets = set([ticker for ticker in daily_data.prices
                                if ticker not in self.assets_in_pairs])
+        overweight_orders = portfolio_helpers.sell_overweight_target_stocks(
+            self.algorithm_id, portfolio, daily_data, uniform_targets)
+        remaining_limit -= sum([order.stop * order.volume
+                                for order in overweight_orders])
+        orders += overweight_orders
         orders += portfolio_helpers.invest_approximately_uniformly_in_targets(
             self.algorithm_id, portfolio, daily_data, uniform_targets,
             remaining_limit, UP=1.02, DOWN=0.98)
