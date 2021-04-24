@@ -181,3 +181,31 @@ def divide_or_zero(num, denom):
     if denom < 1e-6:
         return 0.0
     return num / denom
+
+
+def sell_overweight_target_stocks(algorithm_id, portfolio, daily_data, targets,
+                                  stop_frac=0.99, invert_targets=False):
+    """
+    Creates sell orders for stocks that are above the target for uniformity.
+    """
+    if len(targets) == 0:
+        return []
+    num_assets = len(set([ticker for ticker in daily_data.prices]))
+    target = portfolio_value(portfolio, daily_data.prices) / num_assets
+    orders = []
+    for ticker in portfolio.stocks:
+        if (ticker not in daily_data.prices or
+            (invert_targets and ticker in targets) or
+                (not invert_targets and ticker not in targets)):
+            continue
+        price = daily_data.prices[ticker].close
+        quantity = portfolio.stocks[ticker]
+        weight = price * quantity
+        # Only sell if over target by more than 10%.
+        if (weight - target) / target >= 0.1:
+            delta_units = round(target / price) - portfolio.stocks[ticker]
+            orders.append(supervisor_pb2.Order(algorithm_id=algorithm_id,
+                                               ticker=ticker,
+                                               volume=delta_units,
+                                               stop=stop_frac * price))
+    return orders

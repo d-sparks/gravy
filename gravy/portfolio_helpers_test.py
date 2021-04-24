@@ -185,5 +185,152 @@ class TestOrdersSortedDescending(unittest.TestCase):
                             prev_order.limit * prev_order.volume)
 
 
+class TestSellOverweightTargetStocks(unittest.TestCase):
+
+    def test_simple(self):
+        # Inputs
+        portfolio = json_format.Parse(json.dumps({
+            "stocks": {
+                "MSFT": 6.0,
+                "GOOG": 7.0,
+                "FB": 6.0,
+                "APPL": 7.0,
+            },
+            "usd": -50.0,
+        }), supervisor_pb2.Portfolio())
+        daily_data = json_format.Parse(json.dumps({
+            "prices": {
+                "MSFT": {"close": 10.0},
+                "GOOG": {"close": 10.0},
+                "FB": {"close": 11.0},
+                "APPL": {"close": 8.0},
+            },
+        }), daily_prices_pb2.DailyData())
+        # Expected outputs
+        expected_volume = {
+            "APPL": -1.0,
+            "FB": -1.0,
+            "GOOG": -2.0,
+            "MSFT": -1.0,
+        }
+        # Create orders to be tested
+        targets = ["GOOG", "FB", "APPL", "MSFT"]
+        orders = portfolio_helpers.sell_overweight_target_stocks(
+            test_algorithm_id, portfolio, daily_data, targets)
+        # Assertions
+        for order in orders:
+            self.assertEqual(order.volume, expected_volume[order.ticker])
+            self.assertEqual(order.stop, 0.99 *
+                             daily_data.prices[order.ticker].close)
+        self.assertEqual(len(orders), 4)
+
+    def test_restricted(self):
+        # Inputs
+        portfolio = json_format.Parse(json.dumps({
+            "stocks": {
+                "MSFT": 6.0,
+                "GOOG": 7.0,
+                "FB": 6.0,
+                "APPL": 7.0,
+            },
+            "usd": -50.0,
+        }), supervisor_pb2.Portfolio())
+        daily_data = json_format.Parse(json.dumps({
+            "prices": {
+                "MSFT": {"close": 10.0},
+                "GOOG": {"close": 10.0},
+                "FB": {"close": 11.0},
+                "APPL": {"close": 8.0},
+            },
+        }), daily_prices_pb2.DailyData())
+        # Expected outputs
+        expected_volume = {
+            "APPL": -1.0,
+            "FB": -1.0,
+        }
+        # Create orders to be tested
+        targets = ["FB", "APPL"]
+        orders = portfolio_helpers.sell_overweight_target_stocks(
+            test_algorithm_id, portfolio, daily_data, targets)
+        # Assertions
+        for order in orders:
+            self.assertEqual(order.volume, expected_volume[order.ticker])
+            self.assertEqual(order.stop, 0.99 *
+                             daily_data.prices[order.ticker].close)
+        self.assertEqual(len(orders), 2)
+
+    def test_restricted_inverted(self):
+        # Inputs
+        portfolio = json_format.Parse(json.dumps({
+            "stocks": {
+                "MSFT": 6.0,
+                "GOOG": 7.0,
+                "FB": 6.0,
+                "APPL": 7.0,
+            },
+            "usd": -50.0,
+        }), supervisor_pb2.Portfolio())
+        daily_data = json_format.Parse(json.dumps({
+            "prices": {
+                "MSFT": {"close": 10.0},
+                "GOOG": {"close": 10.0},
+                "FB": {"close": 11.0},
+                "APPL": {"close": 8.0},
+            },
+        }), daily_prices_pb2.DailyData())
+        # Expected outputs
+        expected_volume = {
+            "APPL": -1.0,
+            "FB": -1.0,
+        }
+        # Create orders to be tested
+        targets = ["GOOG", "MSFT", "BOGUS"]
+        orders = portfolio_helpers.sell_overweight_target_stocks(
+            test_algorithm_id, portfolio, daily_data, targets,
+            invert_targets=True)
+        # Assertions
+        for order in orders:
+            self.assertEqual(order.volume, expected_volume[order.ticker])
+            self.assertEqual(order.stop, 0.99 *
+                             daily_data.prices[order.ticker].close)
+        self.assertEqual(len(orders), 2)
+
+    def test_underweight(self):
+        # Inputs
+        portfolio = json_format.Parse(json.dumps({
+            "stocks": {
+                "MSFT": 0.0,
+                "GOOG": 7.0,
+                "FB": 6.0,
+                "APPL": 7.0,
+            },
+            "usd": 10.0,
+        }), supervisor_pb2.Portfolio())
+        daily_data = json_format.Parse(json.dumps({
+            "prices": {
+                "MSFT": {"close": 10.0},
+                "GOOG": {"close": 10.0},
+                "FB": {"close": 11.0},
+                "APPL": {"close": 8.0},
+            },
+        }), daily_prices_pb2.DailyData())
+        # Expected outputs
+        expected_volume = {
+            "APPL": -1.0,
+            "FB": -1.0,
+            "GOOG": -2.0,
+        }
+        # Create orders to be tested
+        targets = ["GOOG", "FB", "APPL", "MSFT"]
+        orders = portfolio_helpers.sell_overweight_target_stocks(
+            test_algorithm_id, portfolio, daily_data, targets)
+        # Assertions
+        for order in orders:
+            self.assertEqual(order.volume, expected_volume[order.ticker])
+            self.assertEqual(order.stop, 0.99 *
+                             daily_data.prices[order.ticker].close)
+        self.assertEqual(len(orders), 3)
+
+
 if __name__ == '__main__':
     unittest.main()
