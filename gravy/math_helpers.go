@@ -60,8 +60,13 @@ func calculateDistributionImpl(
 ) *Distribution {
 	output := Distribution{Percentiles: map[int]float64{}}
 
-	// Use a rolling mean and variance, but recording all days.
+	// Return empty distribution if no data.
 	numVals := end - begin
+	if numVals == 0 {
+		return &output
+	}
+
+	// Use a rolling mean and variance, but recording all days.
 	mu := mean.NewRolling(numVals)
 	Var := variance.NewRolling(mu, numVals)
 	for i := 0; i < numVals; i++ {
