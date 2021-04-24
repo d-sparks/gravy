@@ -1,6 +1,14 @@
 # Tokenize
 
-## Generate
+## Generate ids
+
+After setting up the `dailyprices` table in the `gravy` db,
+
+1. `cat data/assetids/sql/create_tables.sql | psql gravy`
+2. `cat data/assetids/sql/create_indexes.sql | psql gravy`
+3. `go run cmd/data/assetids/pipeline/main.go`
+
+## Generate logic
 
 1. Read all distinct (asset, exchange) pairs from dailyprices
 2. Find the maximum assigned id (or 1)
