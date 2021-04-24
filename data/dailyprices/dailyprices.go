@@ -324,6 +324,7 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 	if err != nil {
 		return nil, fmt.Errorf("Error reading from db: `%s`", err.Error())
 	}
+	defer rows.Close()
 
 	// Construct daily prices by scanning the query result.
 	data := dailyprices_pb.DailyData{
@@ -425,6 +426,7 @@ func (s *Server) TradingDatesInRange(
 	if err != nil {
 		return nil, fmt.Errorf("Error querying for distinct dates: `%s`", err.Error())
 	}
+	defer rows.Close()
 
 	// Scan and parse dates into a slice.
 	tradingDates := dailyprices_pb.TradingDates{}
@@ -485,6 +487,7 @@ func (s *Server) AssetIds(
 	if rows.Err() != nil {
 		return nil, fmt.Errorf("Couldn't complete scan of asset ids: %s", err.Error())
 	}
+	rows.Close()
 
 	// Return
 	return &output, nil
