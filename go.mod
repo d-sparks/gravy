@@ -9,6 +9,7 @@ require (
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/lib/pq v1.8.0
+	github.com/montanaflynn/stats v0.6.5 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/tensorflow/tensorflow v2.3.1+incompatible
 	go4.org v0.0.0-20201209231011-d4a079459e60 // indirect

@@ -20,7 +20,12 @@ func (v *Rolling) Observe(x float64) {
 	v.c.Observe(x, x)
 }
 
-// Value returns the value of the variance.
+// Value returns the value of the sample variance.
 func (v *Rolling) Value() float64 {
 	return v.c.Value()
+}
+
+// UncorrectedValue returns the population variance.
+func (v *Rolling) UncorrectedValue() float64 {
+	return v.c.UncorrectedValue()
 }
