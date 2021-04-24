@@ -30,7 +30,7 @@ Backtests currently output various debug logs (usually to a temp directory) and 
 
 ### To run gravy:
 
-1. Follow the instructions in `data/dailyprices` to get the basic `dailyprices` and `gravy_timescale_output` dbs
+1. Follow the instructions in `data/dailyprices` and `data/assetids` to get the basic `dailyprices`, `gravy_timescale_output`, and `assetids` dbs
 2. Run a persisting data source with `go run cmd/data/dailyprices/main.go`
 3. Run a study, such as `sh ./studies/correlated_pairs.sh`
 4. This should start populating a new table `timescaleout${TIMESTAMP}` in the `gravy_timescale_output` db
