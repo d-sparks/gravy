@@ -216,7 +216,7 @@ func (s *S) handleOrder(
 	ticker := order.GetTicker()
 	amountHeld, holding := portfolio.GetStocks()[ticker]
 	volume := order.GetVolume()
-	if volume < 0 && (!holding || amountHeld < volume) {
+	if volume < 0 && (!holding || amountHeld < -volume) {
 		// Don't have enough of the stock to sell.
 		s.logOrder(tradingDate, algorithmID, false, "NO_UNITS", volume, order.GetLimit(), ticker)
 		return false
