@@ -38,6 +38,8 @@ Backtests currently output various debug logs (usually to a temp directory) and 
 6. Go to `localhost:3000` and bring the `${TIMESTAMP}` to visualize the results
 7. (there are also some files output in `/tmp/fizzybuzzy/` including a log of individual buy/sell orders)
 
+<img width="1282" alt="grafana_example" src="https://user-images.githubusercontent.com/7853117/115964692-ebc43280-a4e2-11eb-84c1-8deaaecb65d3.png">
+
 ### To ask what are the five best days for GOOG stock.
 
 ```
