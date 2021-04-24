@@ -1,4 +1,4 @@
-package assetids
+package assetidspipeline
 
 import (
 	"database/sql"
@@ -40,23 +40,15 @@ func UpdateAssetIDs(postgresURL string, assetIDsTable string, dailyPricesTable s
 	if rows.Err() != nil {
 		return fmt.Errorf("Couldn't scan all ticker exchange pairs: %s", rows.Err())
 	}
+	rows.Close()
 
 	// Find next available ID.
 	nextID := int64(0)
-	rows, err = db.Query(
+	row := db.QueryRow(
 		fmt.Sprintf("SELECT (CASE WHEN max(id) IS NULL THEN 0 else max(id) END) as m FROM %s;", assetIDsTable),
 	)
-	if err != nil {
-		return fmt.Errorf("Error reading max id from asset ids table: %s", err.Error())
-	}
-	for rows.Next() {
-		err = rows.Scan(&nextID)
-		if err != nil {
-			return fmt.Errorf("Error scanning rows for max id: %s", err.Error())
-		}
-	}
-	if rows.Err() != nil {
-		return fmt.Errorf("Couldn't complete scan for max id: %s", err.Error())
+	if err = row.Scan(&nextID); err != nil {
+		return fmt.Errorf("Error scanning rows for max id: %s", err.Error())
 	}
 	nextID += 1
 
@@ -66,26 +58,19 @@ func UpdateAssetIDs(postgresURL string, assetIDsTable string, dailyPricesTable s
 		exchange := exchanges[i]
 
 		// Check if this asset pair already has an ID.
-		covered := false
-		rows, err = db.Query(
-			fmt.Sprintf("SELECT * FROM %s WHERE exchange=$1 and ticker=$2;", assetIDsTable),
+		row = db.QueryRow(
+			fmt.Sprintf(
+				"SELECT count(*) FROM %s WHERE exchange=$1 and ticker=$2;",
+				assetIDsTable,
+			),
 			exchange,
 			ticker,
 		)
-		if err != nil {
-			return fmt.Errorf("Error querying asset ids to check pair: %s", err.Error())
+		var count int
+		if err = row.Scan(&count); err != nil {
+			return fmt.Errorf("Error scanning asset ids for pair: %s", err.Error())
 		}
-		for rows.Next() {
-			if err = rows.Scan(); err != nil {
-				return fmt.Errorf("Error scanning asset ids for pair: %s", err.Error())
-			}
-			covered = true
-			break
-		}
-		if rows.Err() != nil {
-			return fmt.Errorf("Couldn't finish scanning asset pairs: %s", err.Error())
-		}
-		if covered {
+		if count > 0 {
 			continue
 		}
 

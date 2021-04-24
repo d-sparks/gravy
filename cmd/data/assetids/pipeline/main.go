@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	assetids "github.com/d-sparks/gravy/data/assetids/pipeline"
+	assetidspipeline "github.com/d-sparks/gravy/data/assetids/pipeline"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 
 func main() {
 	flag.Parse()
-	if err := assetids.UpdateAssetIDs(*dbURL, *assetIDsTable, *dailyPricesTable); err != nil {
+	if err := assetidspipeline.UpdateAssetIDs(*dbURL, *assetIDsTable, *dailyPricesTable); err != nil {
 		log.Fatalf(err.Error())
 	}
 }
