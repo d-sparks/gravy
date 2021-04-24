@@ -29,6 +29,11 @@ class DataStub(object):
                 request_serializer=daily__prices__pb2.Range.SerializeToString,
                 response_deserializer=daily__prices__pb2.TradingDates.FromString,
                 )
+        self.AssetIds = channel.unary_unary(
+                '/dailyprices.Data/AssetIds',
+                request_serializer=daily__prices__pb2.AssetIdsRequest.SerializeToString,
+                response_deserializer=daily__prices__pb2.AssetIdsResponse.FromString,
+                )
 
 
 class DataServicer(object):
@@ -52,6 +57,12 @@ class DataServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AssetIds(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DataServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -69,6 +80,11 @@ def add_DataServicer_to_server(servicer, server):
                     servicer.TradingDatesInRange,
                     request_deserializer=daily__prices__pb2.Range.FromString,
                     response_serializer=daily__prices__pb2.TradingDates.SerializeToString,
+            ),
+            'AssetIds': grpc.unary_unary_rpc_method_handler(
+                    servicer.AssetIds,
+                    request_deserializer=daily__prices__pb2.AssetIdsRequest.FromString,
+                    response_serializer=daily__prices__pb2.AssetIdsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -128,5 +144,22 @@ class Data(object):
         return grpc.experimental.unary_unary(request, target, '/dailyprices.Data/TradingDatesInRange',
             daily__prices__pb2.Range.SerializeToString,
             daily__prices__pb2.TradingDates.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AssetIds(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/dailyprices.Data/AssetIds',
+            daily__prices__pb2.AssetIdsRequest.SerializeToString,
+            daily__prices__pb2.AssetIdsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -12,6 +12,8 @@ service Data {
   rpc NewSession(NewSessionRequest) returns (NewSessionResponse) {}
 
   rpc TradingDatesInRange(Range) returns (TradingDates) {}
+
+  rpc AssetIds(AssetIdsRequest) returns (AssetIdsResponse) {}
 }
 
 message Request {
@@ -80,5 +82,15 @@ message NewSessionRequest {
 }
 
 message NewSessionResponse {
+}
 
+message AssetIdsRequest {
+}
+
+message AssetIdsResponse {
+  message TickerExchangePair {
+    string ticker = 1;
+    string exchange = 2;
+  };
+  map<int64, TickerExchangePair> asset_ids = 1;
 }
