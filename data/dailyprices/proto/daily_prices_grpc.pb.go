@@ -20,6 +20,7 @@ type DataClient interface {
 	Get(ctx context.Context, in *Request, opts ...grpc.CallOption) (*DailyData, error)
 	NewSession(ctx context.Context, in *NewSessionRequest, opts ...grpc.CallOption) (*NewSessionResponse, error)
 	TradingDatesInRange(ctx context.Context, in *Range, opts ...grpc.CallOption) (*TradingDates, error)
+	AssetIds(ctx context.Context, in *AssetIdsRequest, opts ...grpc.CallOption) (*AssetIdsResponse, error)
 }
 
 type dataClient struct {
@@ -57,6 +58,15 @@ func (c *dataClient) TradingDatesInRange(ctx context.Context, in *Range, opts ..
 	return out, nil
 }
 
+func (c *dataClient) AssetIds(ctx context.Context, in *AssetIdsRequest, opts ...grpc.CallOption) (*AssetIdsResponse, error) {
+	out := new(AssetIdsResponse)
+	err := c.cc.Invoke(ctx, "/dailyprices.Data/AssetIds", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DataServer is the server API for Data service.
 // All implementations must embed UnimplementedDataServer
 // for forward compatibility
@@ -64,6 +74,7 @@ type DataServer interface {
 	Get(context.Context, *Request) (*DailyData, error)
 	NewSession(context.Context, *NewSessionRequest) (*NewSessionResponse, error)
 	TradingDatesInRange(context.Context, *Range) (*TradingDates, error)
+	AssetIds(context.Context, *AssetIdsRequest) (*AssetIdsResponse, error)
 	mustEmbedUnimplementedDataServer()
 }
 
@@ -79,6 +90,9 @@ func (UnimplementedDataServer) NewSession(context.Context, *NewSessionRequest) (
 }
 func (UnimplementedDataServer) TradingDatesInRange(context.Context, *Range) (*TradingDates, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TradingDatesInRange not implemented")
+}
+func (UnimplementedDataServer) AssetIds(context.Context, *AssetIdsRequest) (*AssetIdsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssetIds not implemented")
 }
 func (UnimplementedDataServer) mustEmbedUnimplementedDataServer() {}
 
@@ -147,6 +161,24 @@ func _Data_TradingDatesInRange_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Data_AssetIds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssetIdsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DataServer).AssetIds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/dailyprices.Data/AssetIds",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DataServer).AssetIds(ctx, req.(*AssetIdsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Data_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "dailyprices.Data",
 	HandlerType: (*DataServer)(nil),
@@ -162,6 +194,10 @@ var _Data_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TradingDatesInRange",
 			Handler:    _Data_TradingDatesInRange_Handler,
+		},
+		{
+			MethodName: "AssetIds",
+			Handler:    _Data_AssetIds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

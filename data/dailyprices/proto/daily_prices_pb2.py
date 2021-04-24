@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=b'Z?github.com/d-sparks/gravy/data/dailyprices/proto;dailyprices_pb',
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x12\x64\x61ily_prices.proto\x12\x0b\x64\x61ilyprices\x1a\x1fgoogle/protobuf/timestamp.proto\"I\n\x07Request\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07version\x18\x02 \x01(\x05\"\xce\x05\n\x05Stats\x12\r\n\x05\x61lpha\x18\x01 \x01(\x01\x12\x0c\n\x04\x62\x65ta\x18\x02 \x01(\x01\x12?\n\x0fmoving_averages\x18\x03 \x03(\x0b\x32&.dailyprices.Stats.MovingAveragesEntry\x12L\n\x16moving_average_returns\x18\n \x03(\x0b\x32,.dailyprices.Stats.MovingAverageReturnsEntry\x12?\n\x0fmoving_variance\x18\x05 \x03(\x0b\x32&.dailyprices.Stats.MovingVarianceEntry\x12;\n\rmoving_volume\x18\x08 \x03(\x0b\x32$.dailyprices.Stats.MovingVolumeEntry\x12L\n\x16moving_volume_variance\x18\t \x03(\x0b\x32,.dailyprices.Stats.MovingVolumeVarianceEntry\x12\x10\n\x08\x65xchange\x18\x04 \x01(\t\x12\x0c\n\x04mean\x18\x06 \x01(\x01\x12\x10\n\x08variance\x18\x07 \x01(\x01\x1a\x35\n\x13MovingAveragesEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a;\n\x19MovingAverageReturnsEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x35\n\x13MovingVarianceEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x33\n\x11MovingVolumeEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a;\n\x19MovingVolumeVarianceEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\"P\n\x06Prices\x12\x0c\n\x04open\x18\x01 \x01(\x01\x12\r\n\x05\x63lose\x18\x02 \x01(\x01\x12\x0b\n\x03low\x18\x04 \x01(\x01\x12\x0c\n\x04high\x18\x05 \x01(\x01\x12\x0e\n\x06volume\x18\x06 \x01(\x01\"S\n\tPairStats\x12\r\n\x05\x66irst\x18\x01 \x01(\t\x12\x0e\n\x06second\x18\x02 \x01(\t\x12\x12\n\ncovariance\x18\x03 \x01(\x01\x12\x13\n\x0b\x63orrelation\x18\x04 \x01(\x01\"\xe3\x02\n\tDailyData\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07version\x18\x03 \x01(\x05\x12\x32\n\x06prices\x18\x01 \x03(\x0b\x32\".dailyprices.DailyData.PricesEntry\x12\x30\n\x05stats\x18\x04 \x03(\x0b\x32!.dailyprices.DailyData.StatsEntry\x12*\n\npair_stats\x18\x05 \x03(\x0b\x32\x16.dailyprices.PairStats\x1a\x42\n\x0bPricesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.dailyprices.Prices:\x02\x38\x01\x1a@\n\nStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12!\n\x05value\x18\x02 \x01(\x0b\x32\x12.dailyprices.Stats:\x02\x38\x01\"W\n\x05Range\x12&\n\x02lb\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12&\n\x02ub\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\">\n\x0cTradingDates\x12.\n\ntimestamps\x18\x01 \x03(\x0b\x32\x1a.google.protobuf.Timestamp\":\n\x11NewSessionRequest\x12%\n\tsim_range\x18\x01 \x01(\x0b\x32\x12.dailyprices.Range\"\x14\n\x12NewSessionResponse2\xd6\x01\n\x04\x44\x61ta\x12\x35\n\x03Get\x12\x14.dailyprices.Request\x1a\x16.dailyprices.DailyData\"\x00\x12O\n\nNewSession\x12\x1e.dailyprices.NewSessionRequest\x1a\x1f.dailyprices.NewSessionResponse\"\x00\x12\x46\n\x13TradingDatesInRange\x12\x12.dailyprices.Range\x1a\x19.dailyprices.TradingDates\"\x00\x42\x41Z?github.com/d-sparks/gravy/data/dailyprices/proto;dailyprices_pbb\x06proto3'
+  serialized_pb=b'\n\x12\x64\x61ily_prices.proto\x12\x0b\x64\x61ilyprices\x1a\x1fgoogle/protobuf/timestamp.proto\"I\n\x07Request\x12-\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07version\x18\x02 \x01(\x05\"\xce\x05\n\x05Stats\x12\r\n\x05\x61lpha\x18\x01 \x01(\x01\x12\x0c\n\x04\x62\x65ta\x18\x02 \x01(\x01\x12?\n\x0fmoving_averages\x18\x03 \x03(\x0b\x32&.dailyprices.Stats.MovingAveragesEntry\x12L\n\x16moving_average_returns\x18\n \x03(\x0b\x32,.dailyprices.Stats.MovingAverageReturnsEntry\x12?\n\x0fmoving_variance\x18\x05 \x03(\x0b\x32&.dailyprices.Stats.MovingVarianceEntry\x12;\n\rmoving_volume\x18\x08 \x03(\x0b\x32$.dailyprices.Stats.MovingVolumeEntry\x12L\n\x16moving_volume_variance\x18\t \x03(\x0b\x32,.dailyprices.Stats.MovingVolumeVarianceEntry\x12\x10\n\x08\x65xchange\x18\x04 \x01(\t\x12\x0c\n\x04mean\x18\x06 \x01(\x01\x12\x10\n\x08variance\x18\x07 \x01(\x01\x1a\x35\n\x13MovingAveragesEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a;\n\x19MovingAverageReturnsEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x35\n\x13MovingVarianceEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a\x33\n\x11MovingVolumeEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x1a;\n\x19MovingVolumeVarianceEntry\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\"P\n\x06Prices\x12\x0c\n\x04open\x18\x01 \x01(\x01\x12\r\n\x05\x63lose\x18\x02 \x01(\x01\x12\x0b\n\x03low\x18\x04 \x01(\x01\x12\x0c\n\x04high\x18\x05 \x01(\x01\x12\x0e\n\x06volume\x18\x06 \x01(\x01\"S\n\tPairStats\x12\r\n\x05\x66irst\x18\x01 \x01(\t\x12\x0e\n\x06second\x18\x02 \x01(\t\x12\x12\n\ncovariance\x18\x03 \x01(\x01\x12\x13\n\x0b\x63orrelation\x18\x04 \x01(\x01\"\xe3\x02\n\tDailyData\x12-\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07version\x18\x03 \x01(\x05\x12\x32\n\x06prices\x18\x01 \x03(\x0b\x32\".dailyprices.DailyData.PricesEntry\x12\x30\n\x05stats\x18\x04 \x03(\x0b\x32!.dailyprices.DailyData.StatsEntry\x12*\n\npair_stats\x18\x05 \x03(\x0b\x32\x16.dailyprices.PairStats\x1a\x42\n\x0bPricesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\"\n\x05value\x18\x02 \x01(\x0b\x32\x13.dailyprices.Prices:\x02\x38\x01\x1a@\n\nStatsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12!\n\x05value\x18\x02 \x01(\x0b\x32\x12.dailyprices.Stats:\x02\x38\x01\"W\n\x05Range\x12&\n\x02lb\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12&\n\x02ub\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\">\n\x0cTradingDates\x12.\n\ntimestamps\x18\x01 \x03(\x0b\x32\x1a.google.protobuf.Timestamp\":\n\x11NewSessionRequest\x12%\n\tsim_range\x18\x01 \x01(\x0b\x32\x12.dailyprices.Range\"\x14\n\x12NewSessionResponse\"\x11\n\x0f\x41ssetIdsRequest\"\xed\x01\n\x10\x41ssetIdsResponse\x12>\n\tasset_ids\x18\x01 \x03(\x0b\x32+.dailyprices.AssetIdsResponse.AssetIdsEntry\x1a\x36\n\x12TickerExchangePair\x12\x0e\n\x06ticker\x18\x01 \x01(\t\x12\x10\n\x08\x65xchange\x18\x02 \x01(\t\x1a\x61\n\rAssetIdsEntry\x12\x0b\n\x03key\x18\x01 \x01(\x03\x12?\n\x05value\x18\x02 \x01(\x0b\x32\x30.dailyprices.AssetIdsResponse.TickerExchangePair:\x02\x38\x01\x32\xa1\x02\n\x04\x44\x61ta\x12\x35\n\x03Get\x12\x14.dailyprices.Request\x1a\x16.dailyprices.DailyData\"\x00\x12O\n\nNewSession\x12\x1e.dailyprices.NewSessionRequest\x1a\x1f.dailyprices.NewSessionResponse\"\x00\x12\x46\n\x13TradingDatesInRange\x12\x12.dailyprices.Range\x1a\x19.dailyprices.TradingDates\"\x00\x12I\n\x08\x41ssetIds\x12\x1c.dailyprices.AssetIdsRequest\x1a\x1d.dailyprices.AssetIdsResponse\"\x00\x42\x41Z?github.com/d-sparks/gravy/data/dailyprices/proto;dailyprices_pbb\x06proto3'
   ,
   dependencies=[google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -727,6 +727,139 @@ _NEWSESSIONRESPONSE = _descriptor.Descriptor(
   serialized_end=1622,
 )
 
+
+_ASSETIDSREQUEST = _descriptor.Descriptor(
+  name='AssetIdsRequest',
+  full_name='dailyprices.AssetIdsRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1624,
+  serialized_end=1641,
+)
+
+
+_ASSETIDSRESPONSE_TICKEREXCHANGEPAIR = _descriptor.Descriptor(
+  name='TickerExchangePair',
+  full_name='dailyprices.AssetIdsResponse.TickerExchangePair',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='ticker', full_name='dailyprices.AssetIdsResponse.TickerExchangePair.ticker', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='exchange', full_name='dailyprices.AssetIdsResponse.TickerExchangePair.exchange', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1728,
+  serialized_end=1782,
+)
+
+_ASSETIDSRESPONSE_ASSETIDSENTRY = _descriptor.Descriptor(
+  name='AssetIdsEntry',
+  full_name='dailyprices.AssetIdsResponse.AssetIdsEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='dailyprices.AssetIdsResponse.AssetIdsEntry.key', index=0,
+      number=1, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='dailyprices.AssetIdsResponse.AssetIdsEntry.value', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'8\001',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1784,
+  serialized_end=1881,
+)
+
+_ASSETIDSRESPONSE = _descriptor.Descriptor(
+  name='AssetIdsResponse',
+  full_name='dailyprices.AssetIdsResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='asset_ids', full_name='dailyprices.AssetIdsResponse.asset_ids', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[_ASSETIDSRESPONSE_TICKEREXCHANGEPAIR, _ASSETIDSRESPONSE_ASSETIDSENTRY, ],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1644,
+  serialized_end=1881,
+)
+
 _REQUEST.fields_by_name['timestamp'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _STATS_MOVINGAVERAGESENTRY.containing_type = _STATS
 _STATS_MOVINGAVERAGERETURNSENTRY.containing_type = _STATS
@@ -750,6 +883,10 @@ _RANGE.fields_by_name['lb'].message_type = google_dot_protobuf_dot_timestamp__pb
 _RANGE.fields_by_name['ub'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _TRADINGDATES.fields_by_name['timestamps'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
 _NEWSESSIONREQUEST.fields_by_name['sim_range'].message_type = _RANGE
+_ASSETIDSRESPONSE_TICKEREXCHANGEPAIR.containing_type = _ASSETIDSRESPONSE
+_ASSETIDSRESPONSE_ASSETIDSENTRY.fields_by_name['value'].message_type = _ASSETIDSRESPONSE_TICKEREXCHANGEPAIR
+_ASSETIDSRESPONSE_ASSETIDSENTRY.containing_type = _ASSETIDSRESPONSE
+_ASSETIDSRESPONSE.fields_by_name['asset_ids'].message_type = _ASSETIDSRESPONSE_ASSETIDSENTRY
 DESCRIPTOR.message_types_by_name['Request'] = _REQUEST
 DESCRIPTOR.message_types_by_name['Stats'] = _STATS
 DESCRIPTOR.message_types_by_name['Prices'] = _PRICES
@@ -759,6 +896,8 @@ DESCRIPTOR.message_types_by_name['Range'] = _RANGE
 DESCRIPTOR.message_types_by_name['TradingDates'] = _TRADINGDATES
 DESCRIPTOR.message_types_by_name['NewSessionRequest'] = _NEWSESSIONREQUEST
 DESCRIPTOR.message_types_by_name['NewSessionResponse'] = _NEWSESSIONRESPONSE
+DESCRIPTOR.message_types_by_name['AssetIdsRequest'] = _ASSETIDSREQUEST
+DESCRIPTOR.message_types_by_name['AssetIdsResponse'] = _ASSETIDSRESPONSE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Request = _reflection.GeneratedProtocolMessageType('Request', (_message.Message,), {
@@ -880,6 +1019,36 @@ NewSessionResponse = _reflection.GeneratedProtocolMessageType('NewSessionRespons
   })
 _sym_db.RegisterMessage(NewSessionResponse)
 
+AssetIdsRequest = _reflection.GeneratedProtocolMessageType('AssetIdsRequest', (_message.Message,), {
+  'DESCRIPTOR' : _ASSETIDSREQUEST,
+  '__module__' : 'daily_prices_pb2'
+  # @@protoc_insertion_point(class_scope:dailyprices.AssetIdsRequest)
+  })
+_sym_db.RegisterMessage(AssetIdsRequest)
+
+AssetIdsResponse = _reflection.GeneratedProtocolMessageType('AssetIdsResponse', (_message.Message,), {
+
+  'TickerExchangePair' : _reflection.GeneratedProtocolMessageType('TickerExchangePair', (_message.Message,), {
+    'DESCRIPTOR' : _ASSETIDSRESPONSE_TICKEREXCHANGEPAIR,
+    '__module__' : 'daily_prices_pb2'
+    # @@protoc_insertion_point(class_scope:dailyprices.AssetIdsResponse.TickerExchangePair)
+    })
+  ,
+
+  'AssetIdsEntry' : _reflection.GeneratedProtocolMessageType('AssetIdsEntry', (_message.Message,), {
+    'DESCRIPTOR' : _ASSETIDSRESPONSE_ASSETIDSENTRY,
+    '__module__' : 'daily_prices_pb2'
+    # @@protoc_insertion_point(class_scope:dailyprices.AssetIdsResponse.AssetIdsEntry)
+    })
+  ,
+  'DESCRIPTOR' : _ASSETIDSRESPONSE,
+  '__module__' : 'daily_prices_pb2'
+  # @@protoc_insertion_point(class_scope:dailyprices.AssetIdsResponse)
+  })
+_sym_db.RegisterMessage(AssetIdsResponse)
+_sym_db.RegisterMessage(AssetIdsResponse.TickerExchangePair)
+_sym_db.RegisterMessage(AssetIdsResponse.AssetIdsEntry)
+
 
 DESCRIPTOR._options = None
 _STATS_MOVINGAVERAGESENTRY._options = None
@@ -889,6 +1058,7 @@ _STATS_MOVINGVOLUMEENTRY._options = None
 _STATS_MOVINGVOLUMEVARIANCEENTRY._options = None
 _DAILYDATA_PRICESENTRY._options = None
 _DAILYDATA_STATSENTRY._options = None
+_ASSETIDSRESPONSE_ASSETIDSENTRY._options = None
 
 _DATA = _descriptor.ServiceDescriptor(
   name='Data',
@@ -897,8 +1067,8 @@ _DATA = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=1625,
-  serialized_end=1839,
+  serialized_start=1884,
+  serialized_end=2173,
   methods=[
   _descriptor.MethodDescriptor(
     name='Get',
@@ -927,6 +1097,16 @@ _DATA = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_RANGE,
     output_type=_TRADINGDATES,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='AssetIds',
+    full_name='dailyprices.Data.AssetIds',
+    index=3,
+    containing_service=None,
+    input_type=_ASSETIDSREQUEST,
+    output_type=_ASSETIDSRESPONSE,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
   ),

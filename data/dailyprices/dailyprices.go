@@ -44,6 +44,7 @@ type Server struct {
 	db                    *sql.DB
 	pricesTableName       string
 	tradingDatesTableName string
+	assetIDsTableName     string
 
 	// Cache
 	mu        sync.Mutex
@@ -72,6 +73,7 @@ func NewServer(
 	postgresURL string,
 	dailyPricesTable string,
 	tradingDatesTable string,
+	assetIDsTable string,
 ) (*Server, error) {
 	log.Printf("Connecting to database `%s`", postgresURL)
 	db, err := sql.Open("postgres", postgresURL)
@@ -87,6 +89,7 @@ func NewServer(
 		db:                    db,
 		pricesTableName:       dailyPricesTable,
 		tradingDatesTableName: tradingDatesTable,
+		assetIDsTableName:     assetIDsTable,
 		cache:                 map[int32]map[time.Time]*dailyprices_pb.DailyData{},
 		badDates: map[time.Time]struct{}{
 			unsafeParse("2011-02-17"): struct{}{},
@@ -450,4 +453,39 @@ func (s *Server) TradingDatesInRange(
 	}
 
 	return &tradingDates, nil
+}
+
+// AssetIds implements the interface. Queries the assetIDs table and returns a map of id to (exchange, ticker) pairs.
+func (s *Server) AssetIds(
+	ctx context.Context,
+	unusedInput *dailyprices_pb.AssetIdsRequest,
+) (*dailyprices_pb.AssetIdsResponse, error) {
+	// Query
+	rows, err := s.db.Query(fmt.Sprintf("SELECT exchange, ticker, id FROM %s;", s.assetIDsTableName))
+	if err != nil {
+		return nil, fmt.Errorf("Error querying for distinct dates: `%s`", err.Error())
+	}
+
+	// Scan
+	output := dailyprices_pb.AssetIdsResponse{}
+	for rows.Next() {
+		var (
+			ticker   string
+			exchange string
+			id       int64
+		)
+		if err = rows.Scan(&exchange, &ticker, &id); err != nil {
+			return nil, fmt.Errorf("Error scanning: %s", err.Error())
+		}
+		output.AssetIds[id] = &dailyprices_pb.AssetIdsResponse_TickerExchangePair{
+			Ticker:   ticker,
+			Exchange: exchange,
+		}
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("Couldn't complete scan of asset ids: %s", err.Error())
+	}
+
+	// Return
+	return &output, nil
 }
