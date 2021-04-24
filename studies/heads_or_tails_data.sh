@@ -19,7 +19,7 @@ go run cmd/algorithm/headsortails/main.go \
   # > "${OUTPUT_DIR}/headsortailsstdout" &
 
 # Run
-go run main.go \
+go run cmd/begin_backtest/main.go \
   --start="2005-02-25" \
   --end="2015-02-25" \
   --output_dir="${OUTPUT_DIR}" \

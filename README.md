@@ -10,19 +10,35 @@ Gravy consists of several microservices that operate over grpc:
 2. Supervisor (`supervisor`)
 3. Algorithms (e.g. `algorithms/buyandhold`)
 
-In theory, one can leave the data sources and supervisor running in between backtesting sessions.
+With all of these running, one can begin a backtest via `cmd/begin_backtest/main.go`. Typically one will persist the data sources (which generally cache their outputs in memory) and make a "study" (`studies/`), which is a shell script which configures the supervisor and algorithms to run against the persisting data sources.
 
-The supervisor is responsible for managing the backtest and will communicate with algorithms.
+Backtests currently output various debug logs (usually to a temp directory) and also a TimescaleDB output. Visualize the output with Grafana.
 
-#### To run gravy:
+## Technologies / dependencies
 
-1. Follow the instructions in `data/dailyprices` to get the basic `dailyprices` db.
-2. `go run cmd/data/dailyprices/main.go`
-3. Run a study, such as `./studies/heads_or_tails.sh`
+1. gRPC
+2. proto3
+3. Golang
+4. Python 3
+5. PostGRES
+6. TimescaleDB
+7. Grafana
+8. Jupyter / colab
+9. Typical Python libraries (pandas, scipy, numpy, Tensorflow, keras, sklearn, matplotlib, etc)
 
-This should create a few files in `/tmp/foo` that are the output of the backtest.
+## Examples
 
-#### To ask what are the five best days for GOOG stock.
+### To run gravy:
+
+1. Follow the instructions in `data/dailyprices` to get the basic `dailyprices` and `gravy_timescale_output` dbs
+2. Run a persisting data source with `go run cmd/data/dailyprices/main.go`
+3. Run a study, such as `sh ./studies/correlated_pairs.sh`
+4. This should start populating a new table `timescaleout${TIMESTAMP}` in the `gravy_timescale_output` db
+5. Run grafana, e.g. `brew services start grafana`
+6. Go to `localhost:3000` and bring the `${TIMESTAMP}` to visualize the results
+7. (there are also some files output in `/tmp/fizzybuzzy/` including a log of individual buy/sell orders)
+
+### To ask what are the five best days for GOOG stock.
 
 ```
 echo "select date, open, close, (close-open)/open as perf from dailyprices
@@ -31,7 +47,7 @@ echo "select date, open, close, (close-open)/open as perf from dailyprices
 ;" | psql gravy
 ```
 
-#### To visualize data, use Colab:
+### To visualize prices data, use Colab:
 
 1. `pip3 install psycopg2`
 2. `./jupyter-up.sh`

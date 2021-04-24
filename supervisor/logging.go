@@ -3,11 +3,13 @@ package supervisor
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	dailyprices_pb "github.com/d-sparks/gravy/data/dailyprices/proto"
 	"github.com/d-sparks/gravy/gravy"
+	supervisor_pb "github.com/d-sparks/gravy/supervisor/proto"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -37,6 +39,7 @@ var perAlgorithmCols = []string{
 	"closing_pos_return_max",
 	"closing_pos_return_mean",
 	"significant_holdings",
+	"closing_num_bogus",
 }
 
 // initTimescaleDB creates a new unique identifier and creates and initializes a TimescaleDB for this session.
@@ -89,13 +92,92 @@ func (s *S) initTimescaleDBAlgorithmColumns() error {
 	return nil
 }
 
+// positionReturn calculates the return of the closing position. Also calcualtes "alternate performance" which is the
+// performance of the involved assets as they were held before the position was taken. For example if the initial
+// portfolio were {MSFT: 5, GOOG: 7} and one takes the position {MSFT: 4, GOOG: 20}, the initUSD will be positive to
+// account for buying many more shares of GOOG (but less the price of one MSFT share which was sold). In the end, the
+// performance will be based on the portfolio {MSFT: 5, GOOG: 7, initUSD: $$$} --> {MSFT: 4, GOOG: 20} while the alt
+// performance is from {MSFT: 5, GOOG: 7, initUSD: $$$} --> {MSFT: 5, GOOG: 7, initUSD: $$$}. Note there is no interest
+// rate included here yet.
+func (s *S) positionReturn(
+	portfolio *supervisor_pb.Portfolio,
+	dailyData *dailyprices_pb.DailyData,
+	position *Position,
+) (perf float64, altPerf float64, ok bool) {
+	// Calculate initial total value of assets and USD involved in the position. Also calcualte the mature value
+	// had the position not been taken.
+	initValue := position.initUSD
+	altMatureValue := position.initUSD
+	for ticker, quantity := range position.initQuantity {
+		initValue += quantity * position.initPrices[ticker]
+		altMatureValue += quantity * dailyData.GetPrices()[ticker].GetClose()
+	}
+
+	// Check for bogus position.
+	if initValue <= 1.0 {
+		return 0.0, 0.0, false
+	}
+
+	// Calculate the mature value of the position.
+	matureValue := position.initUSD
+	for ticker := range position.tickers {
+		matureValue += portfolio.GetStocks()[ticker] * dailyData.GetPrices()[ticker].GetClose()
+	}
+
+	// Extrapolate returns and return them.
+	perf = gravy.AnnualizedPerf(initValue, matureValue, position.tradingDays)
+	altPerf = gravy.AnnualizedPerf(initValue, altMatureValue, position.tradingDays)
+	return perf, altPerf, true
+}
+
+// calculateClosingPositionsDistribution calculates a gravy.Distribution based on the differences in perf and altPerf
+// for all closing positions.
+func (s *S) calculateClosingPositionsDistribution(
+	portfolio *supervisor_pb.Portfolio,
+	dailyData *dailyprices_pb.DailyData,
+	closingPositions map[uint64]*Position,
+) (*gravy.Distribution, int) {
+	values := make([]float64, len(closingPositions))
+	i := 0
+	numBogus := 0
+	for _, position := range closingPositions {
+		perf, altPerf, ok := s.positionReturn(portfolio, dailyData, position)
+		if !ok || math.IsNaN(perf) || math.IsNaN(altPerf) || math.Abs(perf)+math.Abs(altPerf) > 1000.0 {
+			numBogus += 1
+			continue
+		}
+		values[i] = perf - altPerf
+	}
+	lambda := func(i int) float64 { return values[i] }
+	return gravy.CalculateDistribution(0, len(values), lambda), numBogus
+}
+
+// calculateOOPDistribution calculates a gravy.Distribution based on portfolio value of all stocks not in positions.
+func (s *S) calculateOOPDistribution(
+	portfolio *supervisor_pb.Portfolio,
+	dailyData *dailyprices_pb.DailyData,
+	inPositionStocks map[string]struct{},
+) *gravy.Distribution {
+	// Build slice of values of stocks that are not in position.
+	values := []float64{}
+	for ticker, quantity := range portfolio.GetStocks() {
+		if _, ok := inPositionStocks[ticker]; ok {
+			continue
+		}
+		values = append(values, quantity*dailyData.GetPrices()[ticker].GetClose())
+	}
+
+	// Calculate distribution.
+	lambda := func(i int) float64 { return values[i] }
+	return gravy.CalculateDistribution(0, len(values), lambda, 10, 25, 50, 75, 90)
+}
+
 // LogTick logs all data for a given tick.
 func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.DailyData) error {
 	cols := []string{"time"}
 	wildcards := []string{"$1"}
 	vals := []interface{}{timestamp.Format("2006-01-02")}
 
-	ix := 2
 	for algorithmID := range s.registrar.Algorithms {
 		portfolio := s.portfolios[algorithmID]
 		portfolioValue := gravy.PortfolioValue(portfolio, dailyData)
@@ -114,7 +196,8 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 		}
 
 		// Calculate "out of position" value (total value less cash and in position value)
-		oopValue := portfolioValue - usd - inPositionValue
+		OOPValue := portfolioValue - usd - inPositionValue
+		OOPDist := s.calculateOOPDistribution(portfolio, dailyData, inPositionStocks)
 
 		// Buys and sells value
 		buysValue := s.totalBuys[algorithmID]
@@ -124,20 +207,25 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 
 		// Closing positions
 		numClosingPositions := len(s.closingPositions[algorithmID])
+		closingPosDist, numBogus := s.calculateClosingPositionsDistribution(
+			portfolio,
+			dailyData,
+			s.closingPositions[algorithmID],
+		)
 		s.closingPositions[algorithmID] = map[uint64]*Position{}
 
 		values := map[string]float64{
 			"portfolio_value":         portfolioValue,
 			"usd":                     usd,
 			"pos_value":               inPositionValue,
-			"oop_value":               oopValue,
-			"oop_deviation_min":       0.0, // TODO
-			"oop_deviation_max":       0.0, // TODO
-			"oop_deviation_10p":       0.0, // TODO
-			"oop_deviation_25p":       0.0, // TODO
-			"oop_deviation_50p":       0.0, // TODO
-			"oop_deviation_75p":       0.0, // TODO
-			"oop_deviation_90p":       0.0, // TODO
+			"oop_value":               OOPValue,
+			"oop_deviation_min":       gravy.ZScore(OOPDist.Min, OOPDist.Mean, OOPDist.StDev),
+			"oop_deviation_max":       gravy.ZScore(OOPDist.Max, OOPDist.Mean, OOPDist.StDev),
+			"oop_deviation_10p":       gravy.ZScore(OOPDist.Percentiles[10], OOPDist.Mean, OOPDist.StDev),
+			"oop_deviation_25p":       gravy.ZScore(OOPDist.Percentiles[25], OOPDist.Mean, OOPDist.StDev),
+			"oop_deviation_50p":       gravy.ZScore(OOPDist.Percentiles[50], OOPDist.Mean, OOPDist.StDev),
+			"oop_deviation_75p":       gravy.ZScore(OOPDist.Percentiles[75], OOPDist.Mean, OOPDist.StDev),
+			"oop_deviation_90p":       gravy.ZScore(OOPDist.Percentiles[90], OOPDist.Mean, OOPDist.StDev),
 			"alpha_15":                0.0, // TODO
 			"alpha_35":                0.0, // TODO
 			"alpha_252":               s.alpha[algorithmID].Alpha(),
@@ -148,9 +236,10 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 			"sells_value":             sellsValue,
 			"num_closing_positions":   float64(numClosingPositions),
 			"num_opening_positions":   float64(s.numOpeningPositions[algorithmID]),
-			"closing_pos_return_min":  0.0, // TODO
-			"closing_pos_return_max":  0.0, // TODO
-			"closing_pos_return_mean": 0.0, // TODO
+			"closing_pos_return_min":  closingPosDist.Min,
+			"closing_pos_return_max":  closingPosDist.Max,
+			"closing_pos_return_mean": closingPosDist.Mean,
+			"closing_num_bogus":       float64(numBogus),
 		}
 
 		for _, col := range perAlgorithmCols {
@@ -172,8 +261,7 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 				vals = append(vals, fmt.Sprintf("%f", values[col]))
 			}
 
-			wildcards = append(wildcards, fmt.Sprintf("$%d", ix))
-			ix += 1
+			wildcards = append(wildcards, fmt.Sprintf("$%d", len(wildcards)+1))
 		}
 	}
 

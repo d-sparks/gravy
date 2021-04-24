@@ -7,6 +7,7 @@
 3. Better ML model, more examples, more features.
 4. Rolling correlation may improve quality
 5. Understand how to get a larger number of pairs (more "in position") and the impact that would have on quality.
+6. (EASY) Don't enter a position for stocks that don't already have a significant holding.
 
 ## Services
 

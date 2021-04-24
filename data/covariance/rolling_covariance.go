@@ -35,3 +35,11 @@ func (r *Rolling) Value() float64 {
 	}
 	return r.cov.Value(r.days) * r.n / (r.n - 1)
 }
+
+// UncorrectedValue is the population covariance.
+func (r *Rolling) UncorrectedValue() float64 {
+	if r.n <= 1.0 {
+		return 0.0
+	}
+	return r.cov.Value(r.days)
+}

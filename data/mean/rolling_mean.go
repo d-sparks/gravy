@@ -121,3 +121,8 @@ func (r *Rolling) OldestObservation() float64 {
 func (r *Rolling) MostRecentObservation() float64 {
 	return r.buffer[(r.head+len(r.buffer)-1)%len(r.buffer)]
 }
+
+// GetBuffer returns the underlying buffer.
+func (r *Rolling) GetBuffer() []float64 {
+	return r.buffer
+}
