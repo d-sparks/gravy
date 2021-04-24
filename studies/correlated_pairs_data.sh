@@ -18,7 +18,7 @@ python3 algorithm/correlated_pairs/correlated_pairs.py \
   > "${OUTPUT_DIR}/correlatedpairsstdout"
 
 # Run
-go run main.go \
+go run cmd/begin_backtest/main.go \
   --start="2005-02-25" \
   --end="2006-02-25" \
   --output_dir="${OUTPUT_DIR}" \

@@ -24,7 +24,7 @@ go run cmd/algorithm/buygoodandhold/main.go \
   > "${OUTPUT_DIR}/buygoodandholdstdout" &
 
 # Run
-go run main.go \
+go run cmd/begin_backtest/main.go \
   --start="2005-02-25" \
   --end="2006-06-25" \
   --output_dir="${OUTPUT_DIR}" \

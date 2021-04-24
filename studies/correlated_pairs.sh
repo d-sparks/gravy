@@ -25,7 +25,7 @@ go run cmd/algorithm/buyspy/main.go \
   > "${OUTPUT_DIR}/buyspystdout" &
 
 # Run
-go run main.go \
+go run cmd/begin_backtest/main.go \
   --start="2006-02-26" \
   --end="2020-11-13" \
   --output_dir="${OUTPUT_DIR}" \
