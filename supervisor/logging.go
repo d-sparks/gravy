@@ -95,7 +95,6 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 	wildcards := []string{"$1"}
 	vals := []interface{}{timestamp.Format("2006-01-02")}
 
-	ix := 2
 	for algorithmID := range s.registrar.Algorithms {
 		portfolio := s.portfolios[algorithmID]
 		portfolioValue := gravy.PortfolioValue(portfolio, dailyData)
@@ -172,8 +171,7 @@ func (s *S) logTickToTimescale(timestamp time.Time, dailyData *dailyprices_pb.Da
 				vals = append(vals, fmt.Sprintf("%f", values[col]))
 			}
 
-			wildcards = append(wildcards, fmt.Sprintf("$%d", ix))
-			ix += 1
+			wildcards = append(wildcards, fmt.Sprintf("$%d", len(wildcards)+1))
 		}
 	}
 
