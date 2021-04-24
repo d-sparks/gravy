@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 1,
-  "iteration": 1619266346454,
+  "iteration": 1619266346456,
   "links": [],
   "panels": [
     {
@@ -1043,7 +1043,7 @@
         "y": 40
       },
       "hiddenSeries": false,
-      "id": 15,
+      "id": 17,
       "legend": {
         "avg": false,
         "current": false,
@@ -1074,7 +1074,7 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": false,
-          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_closing_pos_return_min AS \"Min\",\n  ${main_strategy}_closing_pos_return_max AS \"Max\",\n  ${main_strategy}_closing_pos_return_mean AS \"Mean\"\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_closing_pos_return_min AS \"Min\",\n  ${main_strategy}_closing_pos_return_mean AS \"Mean\",\n  ${main_strategy}_closing_pos_return_max AS \"Max\"\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -1094,20 +1094,6 @@
             [
               {
                 "params": [
-                  "${main_strategy}_closing_pos_return_max"
-                ],
-                "type": "column"
-              },
-              {
-                "params": [
-                  "Max"
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
                   "${main_strategy}_closing_pos_return_mean"
                 ],
                 "type": "column"
@@ -1115,6 +1101,20 @@
               {
                 "params": [
                   "Mean"
+                ],
+                "type": "alias"
+              }
+            ],
+            [
+              {
+                "params": [
+                  "${main_strategy}_closing_pos_return_max"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Max"
                 ],
                 "type": "alias"
               }
@@ -1349,9 +1349,130 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "hiddenSeries": false,
+      "id": 15,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": false,
+          "rawSql": "SELECT\n  \"time\" AS \"time\",\n  ${main_strategy}_closing_num_bogus AS \"Num\"\nFROM timescaleout$run_timestamp\nWHERE\n  $__timeFilter(\"time\")\nORDER BY 1",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "${main_strategy}_closing_num_bogus"
+                ],
+                "type": "column"
+              },
+              {
+                "params": [
+                  "Num"
+                ],
+                "type": "alias"
+              }
+            ]
+          ],
+          "table": "timescaleout$run_timestamp",
+          "timeColumn": "\"time\"",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Num bogus closing positions",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
     }
   ],
-  "refresh": "5s",
+  "refresh": false,
   "schemaVersion": 27,
   "style": "dark",
   "tags": [],
@@ -1360,8 +1481,8 @@
       {
         "current": {
           "selected": false,
-          "text": "1619277005",
-          "value": "1619277005"
+          "text": "1619279033",
+          "value": "1619279033"
         },
         "description": null,
         "error": null,
@@ -1371,11 +1492,11 @@
         "options": [
           {
             "selected": true,
-            "text": "1619277005",
-            "value": "1619277005"
+            "text": "1619279033",
+            "value": "1619279033"
           }
         ],
-        "query": "1619277005",
+        "query": "1619279033",
         "skipUrlSync": false,
         "type": "textbox"
       },
@@ -1448,8 +1569,8 @@
     ]
   },
   "time": {
-    "from": "2006-03-01T23:09:25.952Z",
-    "to": "2008-09-01T06:10:57.076Z"
+    "from": "2006-03-03T21:02:56.642Z",
+    "to": "2008-11-22T14:53:30.654Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1469,5 +1590,5 @@
   "timezone": "",
   "title": "GravyTimescaleOutput",
   "uid": "L22-7MuGz",
-  "version": 11
+  "version": 12
 }
