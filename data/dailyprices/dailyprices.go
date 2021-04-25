@@ -469,7 +469,9 @@ func (s *Server) AssetIds(
 	}
 
 	// Scan
-	output := dailyprices_pb.AssetIdsResponse{}
+	output := dailyprices_pb.AssetIdsResponse{
+		AssetIds: map[int64]*dailyprices_pb.AssetIdsResponse_TickerExchangePair{},
+	}
 	for rows.Next() {
 		var (
 			ticker   string
