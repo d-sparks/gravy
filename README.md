@@ -40,7 +40,7 @@ Backtests currently output various debug logs (usually to a temp directory) and 
 
 <img width="1282" alt="grafana_example" src="https://user-images.githubusercontent.com/7853117/115964692-ebc43280-a4e2-11eb-84c1-8deaaecb65d3.png">
 
-### To ask what are the five best days for GOOG stock.
+### To ask what are the five best days for GOOG stock:
 
 ```
 echo "select date, open, close, (close-open)/open as perf from dailyprices

@@ -43,3 +43,8 @@ func (r *Rolling) UncorrectedValue() float64 {
 	}
 	return r.cov.Value(r.days)
 }
+
+// Full reports whether the buffer is full.
+func (r *Rolling) Full() bool {
+	return r.n >= float64(r.days)
+}

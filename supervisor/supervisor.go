@@ -293,10 +293,10 @@ func (s *S) closeDelistedPositions(
 	tradingPrices *dailyprices_pb.DailyData,
 ) error {
 	// Get prices as the algorithm is aware.
-	var pricesReq dailyprices_pb.Request
-	pricesReq.Timestamp = algorithmDate
-	pricesReq.Version = 0
-	algorithmPrices, err := s.registrar.DailyPrices.Get(ctx, &pricesReq)
+	algorithmPrices, err := s.registrar.DailyPrices.Get(
+		ctx,
+		&dailyprices_pb.Request{Timestamp: algorithmDate, Version: 0},
+	)
 	if err != nil {
 		return fmt.Errorf("Error getting algorithm trading prices: %s", err.Error())
 	}

@@ -52,6 +52,9 @@ type Server struct {
 	times     []time.Time
 	timeIndex map[time.Time]int
 
+	// Configuration
+	includeStats bool
+
 	// Measurements
 	stats     map[string]*Stats
 	pairStats map[string]map[string]*PairStats
@@ -74,6 +77,7 @@ func NewServer(
 	dailyPricesTable string,
 	tradingDatesTable string,
 	assetIDsTable string,
+	includeStats bool,
 ) (*Server, error) {
 	log.Printf("Connecting to database `%s`", postgresURL)
 	db, err := sql.Open("postgres", postgresURL)
@@ -91,8 +95,9 @@ func NewServer(
 		tradingDatesTableName: tradingDatesTable,
 		assetIDsTableName:     assetIDsTable,
 		cache:                 map[int32]map[time.Time]*dailyprices_pb.DailyData{},
+		includeStats:          includeStats,
 		badDates: map[time.Time]struct{}{
-			unsafeParse("2011-02-17"): struct{}{},
+			unsafeParse("2011-02-17"): {},
 		},
 	}
 
@@ -280,6 +285,7 @@ func (s *Server) updateStats(tickTime time.Time, data *dailyprices_pb.DailyData)
 		}
 		s.updateStatsForTicker(tickTime, ticker, benchmarkPerf, data)
 	}
+
 	for ticker := range s.firstSeen {
 		for otherTicker := range s.firstSeen {
 			if !validTickerPair(ticker, otherTicker) {
@@ -355,8 +361,10 @@ func (s *Server) Get(ctx context.Context, req *dailyprices_pb.Request) (*dailypr
 	}
 
 	// Update averages.
-	if err = s.updateStats(tickTime, &data); err != nil {
-		return nil, fmt.Errorf("Error updating averages: %s", err.Error())
+	if s.includeStats {
+		if err = s.updateStats(tickTime, &data); err != nil {
+			return nil, fmt.Errorf("Error updating averages: %s", err.Error())
+		}
 	}
 
 	// Stamp, cache, and return.

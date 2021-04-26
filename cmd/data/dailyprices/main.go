@@ -21,6 +21,7 @@ var (
 	dailyPricesTable  = flag.String("prices_table", "dailyprices", "Daily prices logical table.")
 	tradingDatesTable = flag.String("trading_dates", "tradingdates", "Trading dates logical table.")
 	assetIDsTable     = flag.String("asset_ids", "assetids", "Asset IDs table name.")
+	includeStats      = flag.Bool("include_stats", true, "Include stats calculation.")
 )
 
 func main() {
@@ -39,6 +40,7 @@ func main() {
 		*dailyPricesTable,
 		*tradingDatesTable,
 		*assetIDsTable,
+		*includeStats,
 	)
 	if err != nil {
 		log.Fatalf("Error constructing server: %s", err.Error())
