@@ -1,0 +1,39 @@
+version: '3.7'
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg12
+    env_file:
+      - ./.timescaledb/database.env
+    volumes:
+      - type: volume
+        source: timescaledb
+        target: /var/lib/timescaledb/data/
+    ports:
+      - 5432:5432
+    restart: on-failure
+    networks:
+      - gravy-intranet
+
+  grafana:
+    image: grafana/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=password
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SMTP_ENABLED=false
+    volumes:
+      - type: volume
+        source: grafana
+        target: /var/lib/grafana
+    ports:
+      - 3000:3000
+    restart: on-failure
+    networks:
+      - gravy-intranet
+
+networks:
+  gravy-intranet:
+
+volumes:
+  timescaledb:
+  grafana:
