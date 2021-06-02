@@ -1,0 +1,22 @@
+# # config file version
+apiVersion: 1
+
+datasources:
+ - name: Timescale
+   type: postgres
+   access: proxy
+   orgId: 1
+   url: timescaledb:5432
+   user: user
+   database: gravy
+   isDefault: true
+   jsonData:
+      postgresVersion: "12"
+      tlsAuth: false
+      tlsAuthWithCACert: false
+      timescaledb: true
+   secureJsonData:
+     password: password
+   version: 1
+   editable: false
+
