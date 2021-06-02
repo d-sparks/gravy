@@ -1,7 +1,6 @@
 package dailypricespipeline
 
 import (
-	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -10,9 +9,11 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	// PostGRES
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
@@ -68,7 +69,7 @@ func ParseExchange(exchange string) (*Exchange, error) {
 
 // Populates the dailyprices table. This loads all the kaggle data into memory to group by date and then interpolate
 // missing tickers prices. Also populates the dates table.
-func pricesAndDatesPipeline(filename string, db *sql.DB, pricesTable, datesTable string, exchange *Exchange) error {
+func pricesAndDatesPipeline(filename string, db *sqlx.DB, pricesTable, datesTable string, exchange *Exchange) error {
 	// Open file as a csv reader.
 	file, err := os.Open(filename)
 	if err != nil {
@@ -98,87 +99,153 @@ func pricesAndDatesPipeline(filename string, db *sql.DB, pricesTable, datesTable
 	}
 	dates := map[time.Time]struct{}{}
 	inserted := 0
+
+	query := fmt.Sprintf(
+		`INSERT INTO %s (ticker, exchange, open, close, low, high, volume, date)
+			 VALUES (:ticker, :exchange, :open, :close, :low, :high, :volume, :date) ON CONFLICT DO NOTHING`,
+		pricesTable,
+	)
+
+	type Entry struct {
+		Ticker   string    `db:"ticker"`
+		Exchange string    `db:"exchange"`
+		Open     string    `db:"open"`
+		Close    string    `db:"close"`
+		Low      string    `db:"low"`
+		High     string    `db:"high"`
+		Volume   string    `db:"volume"`
+		Date     time.Time `db:"date"`
+	}
+
+	dateQuery := fmt.Sprintf(
+		"INSERT INTO %s (date, %s) VALUES (:date, :two) ON CONFLICT (date) DO UPDATE SET %s = :one",
+		datesTable,
+		strings.ToLower(exchange.String()),
+		strings.ToLower(exchange.String()),
+	)
+	type DateEntry struct {
+		Date time.Time `db:"date"`
+		One  bool      `db:"one"`
+		Two  bool      `db:"two"`
+	}
+	entries := make([]Entry, 0, 5000)
+	dateEntries := make([]DateEntry, 0, 5000)
 	for row, err = reader.Read(); err == nil; row, err = reader.Read() {
 		if err != nil {
 			return fmt.Errorf("Error parsing row in %s: %s", filename, err.Error())
-		} else if len(row) != 10 {
+		}
+
+		if len(row) != 10 {
 			return fmt.Errorf("Bad row in %s: %s", filename, row)
 		}
+
 		date, err := time.Parse("20060102", row[2])
 		if err != nil {
 			return fmt.Errorf("Error parsing date '%s' in %s: %s", row[2], filename, err.Error())
 		}
-		dates[date] = struct{}{}
-		query := fmt.Sprintf(
-			"INSERT INTO %s (ticker, exchange, open, close, low, high, volume, date)",
-			pricesTable,
-		)
-		query += "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING"
-		if _, err = db.Exec(
-			query,
-			strings.ReplaceAll(row[0], ".US", ""),
-			exchange.String(),
-			row[4],
-			row[7],
-			row[6],
-			row[5],
-			row[8],
-			date,
-		); err != nil {
-			return fmt.Errorf("Error inserting row %s in %s: %s", row, filename, err.Error())
+
+		if _, ok := dates[date]; !ok {
+			dates[date] = struct{}{}
+			dateEntries = append(dateEntries, DateEntry{
+				Date: date,
+				One:  true,
+				Two:  true,
+			})
 		}
+
+		entries = append(entries, Entry{
+			Ticker:   strings.ReplaceAll(row[0], ".US", ""),
+			Exchange: exchange.String(),
+			Open:     row[4],
+			Close:    row[7],
+			Low:      row[6],
+			High:     row[5],
+			Volume:   row[8],
+			Date:     date,
+		})
 		inserted++
+
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("Error reading prices file %s: `%s`", filename, err.Error())
+		}
 	}
-	if err != nil && err != io.EOF {
-		return fmt.Errorf("Error reading prices file %s: `%s`", filename, err.Error())
+
+	if _, err = db.NamedExec(query, entries); err != nil {
+		return fmt.Errorf("Error inserting row %s in %s: %s", row, filename, err.Error())
 	}
+
 	log.Printf("Inserted %d prices\n", inserted)
 
-	// Put dates into database.
-	for date := range dates {
-		if _, err := db.Exec(
-			fmt.Sprintf(
-				"INSERT INTO %s (date, %s) VALUES ($1, $2) ON CONFLICT (date) DO UPDATE SET %s = $3",
-				datesTable,
-				strings.ToLower(exchange.String()),
-				strings.ToLower(exchange.String()),
-			),
-			date,
-			true,
-			true,
-		); err != nil {
-			return fmt.Errorf("Error inserting date %s: %s", date.Format("2006-01-02"), err.Error())
-		}
-	}
+	_ = dateQuery
+	//if _, err := db.NamedExec(dateQuery, dateEntries); err != nil {
+	//	// return fmt.Errorf("Error inserting date %s: %s", date.Format("2006-01-02"), err.Error())
+	//	return fmt.Errorf("Error inserting dates: %s", err.Error())
+	//}
+
+	//log.Printf("Inserted %d dates\n", inserted)
 
 	return tx.Commit()
 }
 
-// Pipeline populates the tickers and prices databases from files (from stooq data).
-func Pipeline(pricesFolder string, dbURL string, exchange *Exchange, startAt string) error {
-	// Connect to database.
-	log.Printf("Connecting to database `%s`", dbURL)
-	db, err := sql.Open("postgres", dbURL)
-	defer db.Close()
-	if err != nil {
-		return fmt.Errorf("Error connecting to database: %s", err.Error())
-	}
+type Pipeline struct {
+	db        *sqlx.DB
+	exchange  *Exchange
+	startAt   time.Time
+	pricesDir string
+}
 
+func (p *Pipeline) Exec() error {
 	// Get all files in the directory.
-	files, err := ioutil.ReadDir(pricesFolder)
+	files, err := ioutil.ReadDir(p.pricesDir)
 	if err != nil {
 		return fmt.Errorf("Error opening prices folder: %s", err.Error())
 	}
+	var wg sync.WaitGroup
+	limiter := make(chan bool, 10)
 
 	// Process prices.
 	for _, fileInfo := range files {
-		filename := path.Join(pricesFolder, fileInfo.Name())
-		log.Printf("Processing prices from file `%s` to table `%s`...\n", filename, PricesTable)
-		if err := pricesAndDatesPipeline(filename, db, PricesTable, DatesTable, exchange); err != nil {
-			return fmt.Errorf("Error processing prices: `%s`", err.Error())
-		}
+		wg.Add(1)
+		limiter <- true
+		filename := path.Join(p.pricesDir, fileInfo.Name())
+		go func(filename string) {
+			defer func() {
+				<-limiter
+				wg.Done()
+			}()
+			log.Printf("Processing prices from file `%s` to table `%s`...\n", filename, PricesTable)
+			if err := pricesAndDatesPipeline(filename, p.db, PricesTable, DatesTable, p.exchange); err != nil {
+				log.Fatalf("Error processing prices: `%s`", err.Error())
+			}
+		}(filename)
 	}
+	wg.Wait()
 	log.Println("Done processing prices...")
 
+	return p.Close()
+}
+
+func (p *Pipeline) Close() error {
+	if err := p.db.Close(); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// NewPipeline populates the tickers and prices databases from files (from stooq data).
+func NewPipeline(pricesFolder string, dbURL string, exchange *Exchange, startAt string) (*Pipeline, error) {
+	// Connect to database.
+	log.Printf("Connecting to database `%s`", dbURL)
+	db, err := sqlx.Open("postgres", dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("Error connecting to database: %s", err.Error())
+	}
+
+	return &Pipeline{
+		db:        db,
+		exchange:  exchange,
+		startAt:   time.Now(), // TODO(desa): is this needed?
+		pricesDir: pricesFolder,
+	}, nil
 }
