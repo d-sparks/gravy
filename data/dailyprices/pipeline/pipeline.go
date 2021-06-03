@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -93,7 +94,7 @@ func pricesAndDatesPipeline(filename string, db *sqlx.DB, pricesTable, datesTabl
 	}
 
 	// Read the rows and put them in the dailyprices table.
-	tx, err := db.Begin()
+	tx, err := db.Beginx()
 	if err != nil {
 		return fmt.Errorf("Error beginning transaction in prices db: `%s`", err.Error())
 	}
@@ -117,19 +118,25 @@ func pricesAndDatesPipeline(filename string, db *sqlx.DB, pricesTable, datesTabl
 		Date     time.Time `db:"date"`
 	}
 
+	// TODO(desa): is changing this to `ON CONFLICT DO NOTHING` ok?
 	dateQuery := fmt.Sprintf(
-		"INSERT INTO %s (date, %s) VALUES (:date, :two) ON CONFLICT (date) DO UPDATE SET %s = :one",
+		"INSERT INTO %s (date, %s) VALUES (:date, :one) ON CONFLICT DO NOTHING",
 		datesTable,
-		strings.ToLower(exchange.String()),
 		strings.ToLower(exchange.String()),
 	)
 	type DateEntry struct {
 		Date time.Time `db:"date"`
 		One  bool      `db:"one"`
-		Two  bool      `db:"two"`
+		Two  bool
 	}
-	entries := make([]Entry, 0, 5000)
-	dateEntries := make([]DateEntry, 0, 5000)
+
+	entryV := reflect.ValueOf(Entry{})
+	dateEntryV := reflect.ValueOf(DateEntry{})
+	maxEntryBatch := ((1 << 16) / entryV.NumField()) - 1
+	maxDateBatch := ((1 << 16) / dateEntryV.NumField()) - 1
+
+	entries := make([]Entry, 0, maxEntryBatch)
+	dateEntries := make([]DateEntry, 0, maxDateBatch)
 	for row, err = reader.Read(); err == nil; row, err = reader.Read() {
 		if err != nil {
 			return fmt.Errorf("Error parsing row in %s: %s", filename, err.Error())
@@ -168,21 +175,37 @@ func pricesAndDatesPipeline(filename string, db *sqlx.DB, pricesTable, datesTabl
 		if err != nil && err != io.EOF {
 			return fmt.Errorf("Error reading prices file %s: `%s`", filename, err.Error())
 		}
+
+		if len(entries) == maxEntryBatch {
+			if _, err = tx.NamedExec(query, entries); err != nil {
+				return fmt.Errorf("Error inserting row %s in %s: %s", row, filename, err.Error())
+			}
+			log.Printf("Inserted %d prices\n", len(entries))
+			entries = entries[:0]
+		}
+
+		if len(dateEntries) == maxDateBatch {
+			if _, err := tx.NamedExec(dateQuery, dateEntries); err != nil {
+				return fmt.Errorf("Error inserting dates: %s", err.Error())
+			}
+			log.Printf("Inserted %d dates\n", len(dateEntries))
+			dateEntries = dateEntries[:0]
+		}
 	}
 
-	if _, err = db.NamedExec(query, entries); err != nil {
-		return fmt.Errorf("Error inserting row %s in %s: %s", row, filename, err.Error())
+	if len(entries) > 0 {
+		if _, err = tx.NamedExec(query, entries); err != nil {
+			return fmt.Errorf("Error inserting row %s in %s: %s", row, filename, err.Error())
+		}
+		log.Printf("Inserted %d prices\n", len(entries))
 	}
 
-	log.Printf("Inserted %d prices\n", inserted)
-
-	_ = dateQuery
-	//if _, err := db.NamedExec(dateQuery, dateEntries); err != nil {
-	//	// return fmt.Errorf("Error inserting date %s: %s", date.Format("2006-01-02"), err.Error())
-	//	return fmt.Errorf("Error inserting dates: %s", err.Error())
-	//}
-
-	//log.Printf("Inserted %d dates\n", inserted)
+	if len(dateEntries) > 0 {
+		if _, err := tx.NamedExec(dateQuery, dateEntries); err != nil {
+			return fmt.Errorf("Error inserting dates: %s", err.Error())
+		}
+		log.Printf("Inserted %d dates\n", len(dateEntries))
+	}
 
 	return tx.Commit()
 }
@@ -201,7 +224,7 @@ func (p *Pipeline) Exec() error {
 		return fmt.Errorf("Error opening prices folder: %s", err.Error())
 	}
 	var wg sync.WaitGroup
-	limiter := make(chan bool, 10)
+	limiter := make(chan bool, 20)
 
 	// Process prices.
 	for _, fileInfo := range files {
