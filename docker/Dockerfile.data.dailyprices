@@ -1,0 +1,9 @@
+FROM golang:1.16.5-alpine3.14 AS build
+RUN mkdir /build
+ADD . /build
+WORKDIR /build
+RUN go build -o dailyprices ./cmd/data/dailyprices
+
+FROM alpine:3.14
+COPY --from=build /build/dailyprices /usr/bin/dailyprices
+CMD ["sh", "-c", "/usr/bin/dailyprices"]

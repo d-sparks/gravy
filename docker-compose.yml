@@ -34,6 +34,18 @@ services:
     networks:
       - gravy-intranet
 
+  dailyprices:
+    image: registry.digitalocean.com/gravy/dailyprices
+    environment:
+      - PORT="17501"
+    ports:
+      - 17501:17501
+    volumes:
+      - './dailyprices:/srv:delegated'
+    restart: on-failure
+    networks:
+      - gravy-intranet
+
 networks:
   gravy-intranet:
 
