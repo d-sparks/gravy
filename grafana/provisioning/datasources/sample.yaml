@@ -12,6 +12,7 @@ datasources:
    isDefault: true
    jsonData:
       postgresVersion: "12"
+      sslmode: "disable"
       tlsAuth: false
       tlsAuthWithCACert: false
       timescaledb: true
