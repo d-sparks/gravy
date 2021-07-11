@@ -42,14 +42,16 @@ func main() {
 			maybeStartAtFile = *startAtFile
 		}
 
-		if folder.exchange == dailypricespipeline.NYSE {
-			continue
-		}
-
 		log.Printf("Loading prices for exchange %s from folder `%s`\n", folder.exchange.String(), folder.folder)
-		err := dailypricespipeline.Pipeline(folder.folder, *dbURL, &folder.exchange, maybeStartAtFile)
+		pipeline, err := dailypricespipeline.NewPipeline(folder.folder, *dbURL, &folder.exchange, maybeStartAtFile)
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
+
+		if err := pipeline.Exec(); err != nil {
+			log.Fatalf(err.Error())
+		}
+
+		log.Println("Success!")
 	}
 }

@@ -8,6 +8,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/jackc/pgx v3.6.2+incompatible
 	github.com/jackc/pgx/v4 v4.11.0
+	github.com/jmoiron/sqlx v1.3.4
 	github.com/lib/pq v1.8.0
 	github.com/montanaflynn/stats v0.6.5
 	github.com/stretchr/testify v1.6.1
